@@ -8,9 +8,12 @@ use nom::{
     IResult,
 };
 
-fn filter_valid<'a>(data: &'a [(Policy, &str)]) -> impl Iterator<Item = &'a str> {
-    data.iter().filter_map(|(policy, password)| {
-        if policy.is_valid(password) {
+fn filter_valid<'a>(
+    data: &'a [(Policy, &str)],
+    is_valid: impl Fn(&Policy, &str) -> bool,
+) -> impl Iterator<Item = &'a str> {
+    data.iter().filter_map(move |(policy, password)| {
+        if is_valid(policy, password) {
             Some(*password)
         } else {
             None
@@ -18,28 +21,39 @@ fn filter_valid<'a>(data: &'a [(Policy, &str)]) -> impl Iterator<Item = &'a str>
     })
 }
 
-#[derive(Debug, PartialEq)]
-struct Policy {
-    letter: char,
-    min: usize,
-    max: usize,
+fn part_1_rule(policy: &Policy, password: &str) -> bool {
+    let count = password.chars().filter(|c| *c == policy.letter).count();
+    count >= policy.range[0] && count <= policy.range[1]
 }
 
-impl Policy {
-    fn is_valid(&self, password: &str) -> bool {
-        let count = password.chars().filter(|c| *c == self.letter).count();
-        count >= self.min && count <= self.max
-    }
+fn part_2_rule(policy: &Policy, password: &str) -> bool {
+    password
+        .char_indices()
+        .filter(|(ix, c)| policy.range.contains(&(ix + 1)) && *c == policy.letter)
+        .count()
+        == 1
+}
+
+#[derive(Debug, PartialEq)]
+struct Policy {
+    range: [usize; 2],
+    letter: char,
 }
 
 fn policy(input: &str) -> IResult<&str, Policy> {
-    let (input, min) = map_res(digit1, |s: &str| s.parse())(input)?;
+    let (input, first) = map_res(digit1, |s: &str| s.parse())(input)?;
     let (input, _) = char('-')(input)?;
-    let (input, max) = map_res(digit1, |s: &str| s.parse())(input)?;
+    let (input, second) = map_res(digit1, |s: &str| s.parse())(input)?;
     let (input, _) = char(' ')(input)?;
     let (input, letter) = anychar(input)?;
 
-    Ok((input, Policy { letter, min, max }))
+    Ok((
+        input,
+        Policy {
+            range: [first, second],
+            letter,
+        },
+    ))
 }
 
 fn parse_input(input: &str) -> IResult<&str, Vec<(Policy, &str)>> {
@@ -48,10 +62,22 @@ fn parse_input(input: &str) -> IResult<&str, Vec<(Policy, &str)>> {
 
 trait Solution {
     fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
 }
 impl Solution for str {
     fn part_1(&self) -> usize {
-        filter_valid(&parse_input(self).expect("Failed to parse the input").1).count()
+        filter_valid(
+            &parse_input(self).expect("Failed to parse the input").1,
+            part_1_rule,
+        )
+        .count()
+    }
+    fn part_2(&self) -> usize {
+        filter_valid(
+            &parse_input(self).expect("Failed to parse the input").1,
+            part_2_rule,
+        )
+        .count()
     }
 }
 
@@ -66,9 +92,8 @@ mod tests {
             Ok((
                 "",
                 Policy {
+                    range: [1, 3],
                     letter: 'a',
-                    min: 1,
-                    max: 3,
                 }
             ))
         )
@@ -88,25 +113,22 @@ mod tests {
                 vec![
                     (
                         Policy {
+                            range: [1, 3],
                             letter: 'a',
-                            min: 1,
-                            max: 3,
                         },
                         "abcde"
                     ),
                     (
                         Policy {
+                            range: [1, 3],
                             letter: 'b',
-                            min: 1,
-                            max: 3,
                         },
                         "cdefg"
                     ),
                     (
                         Policy {
+                            range: [2, 9],
                             letter: 'c',
-                            min: 2,
-                            max: 9,
                         },
                         "ccccccccc"
                     ),
@@ -116,19 +138,21 @@ mod tests {
     }
 
     #[test]
-    fn example_valid() {
-        assert!(Policy {
-            letter: 'a',
-            min: 1,
-            max: 3,
-        }
-        .is_valid("abcde"));
-        assert!(!Policy {
-            letter: 'b',
-            min: 1,
-            max: 3,
-        }
-        .is_valid("cdefg"))
+    fn example_part_1_rule() {
+        assert!(part_1_rule(
+            &Policy {
+                range: [1, 3],
+                letter: 'a',
+            },
+            "abcde"
+        ));
+        assert!(!part_1_rule(
+            &Policy {
+                range: [1, 3],
+                letter: 'b',
+            },
+            "cdefg"
+        ))
     }
 
     #[test]
@@ -142,7 +166,8 @@ mod tests {
 2-9 c: ccccccccc"
                 )
                 .unwrap()
-                .1
+                .1,
+                part_1_rule
             )
             .collect::<Vec<_>>(),
             vec!["abcde", "ccccccccc"]
@@ -152,5 +177,47 @@ mod tests {
     #[test]
     fn part_1() {
         assert_eq!(include_str!("inputs/day_2").part_1(), 517);
+    }
+
+    #[test]
+    fn example_part_2_rule() {
+        assert!(part_2_rule(
+            &Policy {
+                range: [1, 3],
+                letter: 'a',
+            },
+            "abcde"
+        ));
+        assert!(!part_2_rule(
+            &Policy {
+                range: [2, 9],
+                letter: 'c',
+            },
+            "ccccccccc"
+        ))
+    }
+
+    #[test]
+    fn example_2() {
+        assert_eq!(
+            filter_valid(
+                &parse_input(
+                    "\
+    1-3 a: abcde
+    1-3 b: cdefg
+    2-9 c: ccccccccc"
+                )
+                .unwrap()
+                .1,
+                part_1_rule
+            )
+            .collect::<Vec<_>>(),
+            vec!["abcde"]
+        )
+    }
+
+    #[test]
+    fn part_2() {
+        assert_eq!(include_str!("inputs/day_2").part_2(), 284);
     }
 }
