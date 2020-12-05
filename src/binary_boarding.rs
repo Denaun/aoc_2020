@@ -49,6 +49,7 @@ fn parse_input(s: &str) -> IResult<&str, Vec<(u8, u8)>> {
 
 trait Solution {
     fn part_1(&self) -> u16;
+    fn part_2(&self) -> u16;
 }
 impl Solution for str {
     fn part_1(&self) -> u16 {
@@ -59,6 +60,19 @@ impl Solution for str {
             .map(|pass| pass.id())
             .max()
             .expect("Empty input")
+    }
+    fn part_2(&self) -> u16 {
+        let mut ids = parse_input(self)
+            .expect("Failed to parse the input")
+            .1
+            .iter()
+            .map(|pass| pass.id())
+            .collect::<Vec<_>>();
+        ids.sort();
+        ids.iter()
+            .zip(ids.iter().skip(1))
+            .find_map(|(&a, &b)| if b == a + 2 { Some(a + 1) } else { None })
+            .expect("Seat not found")
     }
 }
 
@@ -95,5 +109,10 @@ BBFFBBFRLL"
     #[test]
     fn part_1() {
         assert_eq!(include_str!("inputs/day_5").part_1(), 850);
+    }
+
+    #[test]
+    fn part_2() {
+        assert_eq!(include_str!("inputs/day_5").part_2(), 599);
     }
 }
