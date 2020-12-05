@@ -1,4 +1,5 @@
-/// Day 2
+//! Day 2
+
 use nom::{
     bytes::complete::tag,
     character::complete::{alpha1, anychar, char, digit1},

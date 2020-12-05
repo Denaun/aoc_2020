@@ -1,4 +1,5 @@
-/// Day 3
+//! Day 3
+
 use nom::{alt, character::complete::char, many0, map, named, separated_list0};
 use std::ops::Mul;
 

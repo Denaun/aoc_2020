@@ -1,4 +1,5 @@
-/// Day 1
+//! Day 1
+
 use num_traits::{CheckedSub, Zero};
 use std::{ops::Mul, str::FromStr};
 

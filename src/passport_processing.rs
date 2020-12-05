@@ -1,4 +1,5 @@
-/// Day 4
+//! Day 4
+
 use nom::{
     branch::alt,
     bytes::complete::{is_not, tag, take_while_m_n},
