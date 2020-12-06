@@ -7,9 +7,20 @@ use nom::{
     sequence::pair,
     IResult,
 };
+use std::collections::HashSet;
 
 fn unique_answers<'a>(group: &'a [&str]) -> impl Iterator<Item = char> + 'a {
     group.iter().flat_map(|answers| answers.chars()).unique()
+}
+fn common_answers(group: &[&str]) -> Option<HashSet<char>> {
+    let mut group = group
+        .iter()
+        .map(|answers| answers.chars().collect::<HashSet<_>>());
+    let first = group.next()?;
+    Some(group.fold(first, |mut common, answers| {
+        common.retain(|a| answers.contains(a));
+        common
+    }))
 }
 
 fn parse_group(s: &str) -> IResult<&str, Vec<&str>> {
@@ -21,6 +32,7 @@ fn parse_input(s: &str) -> IResult<&str, Vec<Vec<&str>>> {
 
 trait Solution {
     fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
 }
 impl Solution for str {
     fn part_1(&self) -> usize {
@@ -29,6 +41,20 @@ impl Solution for str {
             .1
             .iter()
             .map(|group| unique_answers(group).count())
+            .sum()
+    }
+    fn part_2(&self) -> usize {
+        parse_input(self)
+            .expect("Failed to parse the input")
+            .1
+            .iter()
+            .map(|group| {
+                if let Some(answers) = common_answers(group) {
+                    answers.len()
+                } else {
+                    0
+                }
+            })
             .sum()
     }
 }
@@ -111,5 +137,26 @@ b"
     #[test]
     fn part_1() {
         assert_eq!(include_str!("inputs/day_6").part_1(), 6249);
+    }
+
+    #[test]
+    fn example_3() {
+        itertools::assert_equal(
+            [
+                vec!["abc"],
+                vec!["a", "b", "c"],
+                vec!["ab", "ac"],
+                vec!["a"; 4],
+                vec!["b"],
+            ]
+            .iter()
+            .map(|group| common_answers(group).unwrap().len()),
+            vec![3, 0, 1, 1, 1],
+        )
+    }
+
+    #[test]
+    fn part_2() {
+        assert_eq!(include_str!("inputs/day_6").part_2(), 3103);
     }
 }
