@@ -1,4 +1,5 @@
 pub mod binary_boarding;
+pub mod custom_customs;
 pub mod passport_processing;
 pub mod password_philosophy;
 pub mod report_repair;
