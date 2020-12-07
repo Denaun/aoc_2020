@@ -48,6 +48,42 @@ where
     }
     all_children
 }
+fn build_container_map<K1, K2, V>(data: &[(K1, Vec<(K2, V)>)]) -> HashMap<K1, HashMap<K2, V>>
+where
+    K1: Eq + Hash + Clone,
+    K2: Eq + Hash + Clone,
+    V: Clone,
+{
+    data.iter()
+        .map(|(container, containees)| (container.clone(), containees.iter().cloned().collect()))
+        .collect()
+}
+fn count_nesting<T>(end: T, data: &HashMap<T, HashMap<T, usize>>) -> usize
+where
+    T: Eq + Hash,
+{
+    let mut sums = HashMap::<&T, usize>::new();
+    let mut to_visit = vec![&end];
+    while let Some(next) = to_visit.last() {
+        let entries = data.get(next).unwrap();
+        if entries.iter().all(|(e, _)| sums.contains_key(e)) {
+            sums.insert(
+                next,
+                entries.iter().map(|(e, &mul)| mul * (1 + sums[e])).sum(),
+            );
+            to_visit.pop().unwrap();
+        } else {
+            to_visit.extend(entries.iter().filter_map(|(e, _)| {
+                if !sums.contains_key(e) {
+                    Some(e)
+                } else {
+                    None
+                }
+            }));
+        }
+    }
+    sums[&end]
+}
 
 fn parse_color(s: &str) -> IResult<&str, &str> {
     recognize(separated_pair(alpha1, char(' '), alpha1))(s)
@@ -77,6 +113,7 @@ fn parse_input(s: &str) -> IResult<&str, Vec<(&str, Vec<(&str, usize)>)>> {
 
 trait Solution {
     fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
 }
 impl Solution for str {
     fn part_1(&self) -> usize {
@@ -85,6 +122,12 @@ impl Solution for str {
             &build_containee_map(&parse_input(self).expect("Failed to parse the input").1),
         )
         .len()
+    }
+    fn part_2(&self) -> usize {
+        count_nesting(
+            "shiny gold",
+            &build_container_map(&parse_input(self).expect("Failed to parse the input").1),
+        )
     }
 }
 
@@ -156,5 +199,58 @@ dotted black bags contain no other bags."
     #[test]
     fn part_1() {
         assert_eq!(include_str!("inputs/day_7").part_1(), 142);
+    }
+
+    #[test]
+    fn example_2() {
+        assert_eq!(
+            count_nesting(
+                "shiny gold",
+                &build_container_map(&[
+                    ("light red", vec![("bright white", 1), ("muted yellow", 2)]),
+                    (
+                        "dark orange",
+                        vec![("bright white", 3), ("muted yellow", 4)]
+                    ),
+                    ("bright white", vec![("shiny gold", 1)]),
+                    ("muted yellow", vec![("shiny gold", 2), ("faded blue", 9)]),
+                    ("shiny gold", vec![("dark olive", 1), ("vibrant plum", 2)]),
+                    ("dark olive", vec![("faded blue", 3), ("dotted black", 4)]),
+                    ("vibrant plum", vec![("faded blue", 5), ("dotted black", 6)]),
+                    ("faded blue", vec![]),
+                    ("dotted black", vec![]),
+                ])
+            ),
+            32
+        );
+    }
+
+    #[test]
+    fn example_3() {
+        assert_eq!(
+            count_nesting(
+                "shiny gold",
+                &build_container_map(
+                    &parse_input(
+                        "\
+shiny gold bags contain 2 dark red bags.
+dark red bags contain 2 dark orange bags.
+dark orange bags contain 2 dark yellow bags.
+dark yellow bags contain 2 dark green bags.
+dark green bags contain 2 dark blue bags.
+dark blue bags contain 2 dark violet bags.
+dark violet bags contain no other bags."
+                    )
+                    .unwrap()
+                    .1
+                )
+            ),
+            126
+        );
+    }
+
+    #[test]
+    fn part_2() {
+        assert_eq!(include_str!("inputs/day_7").part_2(), 10219);
     }
 }
