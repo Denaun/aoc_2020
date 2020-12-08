@@ -9,7 +9,6 @@ use nom::{
     sequence::{preceded, separated_pair},
     IResult,
 };
-use std::collections::HashSet;
 
 pub type Instruction = (Op, i32);
 pub type BootCode = Vec<Instruction>;
@@ -57,13 +56,32 @@ impl Runner {
     }
 }
 
-fn find_loop(runner: &mut Runner) -> bool {
-    let mut seen = HashSet::new();
+fn find_loop(runner: &mut Runner) -> Vec<usize> {
+    let mut seen = Vec::new();
     while !runner.is_finished() && !seen.contains(&runner.ip) {
-        seen.insert(runner.ip);
+        seen.push(runner.ip);
         runner.execute_one();
     }
-    !runner.is_finished()
+    seen
+}
+fn fix_loop(runner: Runner) -> Option<Runner> {
+    for i in find_loop(&mut runner.clone())
+        .into_iter()
+        .rev()
+        .filter(|i| matches!(runner.code[*i].0, Op::Jmp | Op::Nop))
+    {
+        let mut runner = runner.clone();
+        runner.code.get_mut(i).unwrap().0 = match runner.code[i].0 {
+            Op::Jmp => Op::Nop,
+            Op::Nop => Op::Jmp,
+            _ => panic!(),
+        };
+        find_loop(&mut runner);
+        if runner.is_finished() {
+            return Some(runner);
+        }
+    }
+    None
 }
 
 fn parse_instruction(s: &str) -> IResult<&str, Instruction> {
@@ -85,14 +103,25 @@ fn parse_input(s: &str) -> IResult<&str, BootCode> {
 
 trait Solution {
     fn part_1(&self) -> i32;
+    fn part_2(&self) -> i32;
 }
 impl Solution for str {
     fn part_1(&self) -> i32 {
         let mut runner = Runner::new(parse_input(self).expect("Failed to parse the input").1);
-        if !find_loop(&mut runner) {
+        find_loop(&mut runner);
+        if runner.is_finished() {
             panic!("No loop found");
         }
         runner.acc
+    }
+    fn part_2(&self) -> i32 {
+        if let Some(runner) = fix_loop(Runner::new(
+            parse_input(self).expect("Failed to parse the input").1,
+        )) {
+            runner.acc
+        } else {
+            panic!("Couldn't fix");
+        }
     }
 }
 
@@ -145,7 +174,7 @@ acc +6"
             (Op::Jmp, -4),
             (Op::Acc, 6),
         ]);
-        assert!(find_loop(&mut runner));
+        assert_eq!(find_loop(&mut runner), vec![0, 1, 2, 6, 7, 3, 4]);
         assert_eq!(runner.ip, 1);
         assert_eq!(runner.acc, 5);
     }
@@ -153,5 +182,28 @@ acc +6"
     #[test]
     fn part_1() {
         assert_eq!(include_str!("inputs/day_8").part_1(), 2025);
+    }
+
+    #[test]
+    fn example_2() {
+        let runner = Runner::new(vec![
+            (Op::Nop, 0),
+            (Op::Acc, 1),
+            (Op::Jmp, 4),
+            (Op::Acc, 3),
+            (Op::Jmp, -3),
+            (Op::Acc, -99),
+            (Op::Acc, 1),
+            (Op::Jmp, -4),
+            (Op::Acc, 6),
+        ]);
+        let runner = fix_loop(runner).unwrap();
+        assert_eq!(runner.code[7].0, Op::Nop);
+        assert_eq!(runner.acc, 8);
+    }
+
+    #[test]
+    fn part_2() {
+        assert_eq!(include_str!("inputs/day_8").part_2(), 2001);
     }
 }
