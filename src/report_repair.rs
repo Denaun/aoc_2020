@@ -3,7 +3,7 @@
 use num_traits::{CheckedSub, Zero};
 use std::{ops::Mul, str::FromStr};
 
-fn find_sum<T: Zero + CheckedSub + Copy>(values: &[T], sum: T, n: usize) -> Option<Vec<T>> {
+pub fn find_sum<T: Zero + CheckedSub + Copy>(values: &[T], sum: T, n: usize) -> Option<Vec<T>> {
     if n == 0 {
         return if sum.is_zero() {
             Some(Vec::new())

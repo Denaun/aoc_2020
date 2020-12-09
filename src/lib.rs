@@ -1,5 +1,6 @@
 pub mod binary_boarding;
 pub mod custom_customs;
+pub mod encoding_error;
 pub mod handheld_halting;
 pub mod handy_haversacks;
 pub mod passport_processing;
