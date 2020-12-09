@@ -1,7 +1,7 @@
 //! Day 9
 
 use crate::report_repair::find_sum;
-use num_traits::{CheckedSub, Zero};
+use num_traits::{CheckedSub, NumAssignOps, Unsigned, Zero};
 use std::{iter::FromIterator, str::FromStr};
 
 fn is_valid<T: Zero + CheckedSub + Copy>(value: T, values: &impl AsRef<[T]>) -> bool {
@@ -18,6 +18,28 @@ fn find_first_non_valid<T: Zero + CheckedSub + Copy>(
         data.push(v);
     }
     None
+}
+fn find_contiguous_sum<T: Unsigned + NumAssignOps + PartialOrd + Copy>(
+    values: &[T],
+    sum: T,
+) -> Option<&[T]> {
+    let mut current = T::zero();
+    let mut start = 0;
+    let mut end = 0;
+    while current != sum {
+        if end == values.len() {
+            return None;
+        }
+        if current > sum {
+            current -= values[start];
+            start += 1;
+            end = end.max(start);
+        } else {
+            current += values[end];
+            end += 1;
+        }
+    }
+    Some(&values[start..end])
 }
 
 #[derive(Debug, Clone)]
@@ -51,12 +73,24 @@ fn parse_input<T: FromStr>(text: &str) -> Result<Vec<T>, <T as FromStr>::Err> {
 
 trait Solution {
     fn part_1(&self) -> u64;
+    fn part_2(&self) -> u64;
 }
 impl Solution for str {
     fn part_1(&self) -> u64 {
         let input = parse_input(self).expect("Failed to parse the input");
         find_first_non_valid(input[..25].iter().copied().collect(), &input[25..])
             .expect("Violation not found")
+    }
+    fn part_2(&self) -> u64 {
+        let input: Vec<u64> = parse_input(self).expect("Failed to parse the input");
+        let sum = find_first_non_valid(input[..25].iter().copied().collect(), &input[25..])
+            .expect("Violation not found");
+        let weakness = find_contiguous_sum(&input, sum).expect("Weakness not found");
+        if weakness.is_empty() {
+            0
+        } else {
+            weakness.iter().min().unwrap() + weakness.iter().max().unwrap()
+        }
     }
 }
 
@@ -127,5 +161,24 @@ mod tests {
     #[test]
     fn part_1() {
         assert_eq!(include_str!("inputs/day_9").part_1(), 3_199_139_634);
+    }
+
+    #[test]
+    fn example_3() {
+        assert_eq!(
+            find_contiguous_sum::<u32>(
+                &[
+                    35, 20, 15, 25, 47, 40, 62, 55, 65, 95, 102, 117, 150, 182, 127, 219, 299, 277,
+                    309, 576,
+                ],
+                127
+            ),
+            Some(&[15, 25, 47, 40][..])
+        );
+    }
+
+    #[test]
+    fn part_2() {
+        assert_eq!(include_str!("inputs/day_9").part_2(), 438_559_930);
     }
 }
