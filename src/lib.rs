@@ -1,3 +1,4 @@
+pub mod adapter_array;
 pub mod binary_boarding;
 pub mod custom_customs;
 pub mod encoding_error;
