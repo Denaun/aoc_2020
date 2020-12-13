@@ -9,4 +9,5 @@ pub mod password_philosophy;
 pub mod rain_risk;
 pub mod report_repair;
 pub mod seating_system;
+pub mod shuttle_search;
 pub mod toboggan_trajectory;
