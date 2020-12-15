@@ -8,6 +8,7 @@ pub mod handy_haversacks;
 pub mod passport_processing;
 pub mod password_philosophy;
 pub mod rain_risk;
+pub mod rambunctious_recitation;
 pub mod report_repair;
 pub mod seating_system;
 pub mod shuttle_search;
