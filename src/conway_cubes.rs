@@ -13,10 +13,11 @@ use std::{
     iter::repeat,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct Coordinate(i64, i64, i64);
+type Coordinate = Vec<i64>;
+
 #[derive(Debug, Clone, PartialEq)]
 struct PocketDimension {
+    dimensions: usize,
     active_cubes: HashSet<Coordinate>,
 }
 impl PocketDimension {
@@ -27,10 +28,10 @@ impl PocketDimension {
             let neighbors = self.neighbors(coord);
             let n_active = neighbors
                 .iter()
-                .filter(|n| self.active_cubes.contains(n))
+                .filter(|&n| self.active_cubes.contains(n))
                 .count();
             if n_active != 2 && n_active != 3 {
-                to_deactivate.push(*coord);
+                to_deactivate.push(coord.clone());
             }
             for inactive in neighbors {
                 if !self.active_cubes.contains(&inactive) {
@@ -50,46 +51,60 @@ impl PocketDimension {
 
     fn neighbors(&self, coord: &Coordinate) -> Vec<Coordinate> {
         repeat(&[-1, 0, 1])
-            .take(3)
+            .take(self.dimensions)
             .multi_cartesian_product()
-            .map(|off| Coordinate(coord.0 + off[0], coord.1 + off[1], coord.2 + off[2]))
+            .map(|off| coord.iter().zip(off).map(|(c, o)| c + o).collect_vec())
             .filter(|c| c != coord)
             .collect()
     }
 }
 
-fn parse_input(s: &str) -> IResult<&str, PocketDimension> {
-    let (s, cubes) = all_consuming(separated_list0(
-        line_ending,
-        many0(alt((value(false, char('.')), value(true, char('#'))))),
-    ))(s)?;
+fn parse_input(dimensions: usize) -> impl FnMut(&str) -> IResult<&str, PocketDimension> {
+    move |s| {
+        let (s, cubes) = all_consuming(separated_list0(
+            line_ending,
+            many0(alt((value(false, char('.')), value(true, char('#'))))),
+        ))(s)?;
 
-    Ok((
-        s,
-        PocketDimension {
-            active_cubes: cubes
-                .into_iter()
-                .enumerate()
-                .flat_map(|(x, row)| {
-                    row.into_iter().enumerate().filter_map(move |(y, active)| {
-                        if active {
-                            Some(Coordinate(x as i64, y as i64, 0i64))
-                        } else {
-                            None
-                        }
+        Ok((
+            s,
+            PocketDimension {
+                dimensions,
+                active_cubes: cubes
+                    .into_iter()
+                    .enumerate()
+                    .flat_map(|(x, row)| {
+                        row.into_iter().enumerate().filter_map(move |(y, active)| {
+                            if active {
+                                let mut coord = vec![0; dimensions];
+                                coord[0] = x as i64;
+                                coord[1] = y as i64;
+                                Some(coord)
+                            } else {
+                                None
+                            }
+                        })
                     })
-                })
-                .collect(),
-        },
-    ))
+                    .collect(),
+            },
+        ))
+    }
 }
 
 trait Solution {
     fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
 }
 impl Solution for str {
     fn part_1(&self) -> usize {
-        let mut dimension = parse_input(self).expect("Failed to parse the input").1;
+        let mut dimension = parse_input(3)(self).expect("Failed to parse the input").1;
+        for _ in 0..6 {
+            dimension.evolve();
+        }
+        dimension.active_cubes.len()
+    }
+    fn part_2(&self) -> usize {
+        let mut dimension = parse_input(4)(self).expect("Failed to parse the input").1;
         for _ in 0..6 {
             dimension.evolve();
         }
@@ -104,7 +119,7 @@ mod tests {
     #[test]
     fn example_input() {
         assert_eq!(
-            parse_input(
+            parse_input(3)(
                 "\
 .#.
 ..#
@@ -113,10 +128,17 @@ mod tests {
             Ok((
                 "",
                 PocketDimension {
-                    active_cubes: [(0, 1, 0), (1, 2, 0), (2, 0, 0), (2, 1, 0), (2, 2, 0)]
-                        .iter()
-                        .map(|p| Coordinate(p.0, p.1, p.2))
-                        .collect()
+                    dimensions: 3,
+                    active_cubes: [
+                        vec![0, 1, 0],
+                        vec![1, 2, 0],
+                        vec![2, 0, 0],
+                        vec![2, 1, 0],
+                        vec![2, 2, 0]
+                    ]
+                    .iter()
+                    .cloned()
+                    .collect()
                 }
             ))
         );
@@ -124,12 +146,14 @@ mod tests {
 
     #[test]
     fn example_1() {
-        let mut dimension = PocketDimension {
-            active_cubes: [(0, 1, 0), (1, 2, 0), (2, 0, 0), (2, 1, 0), (2, 2, 0)]
-                .iter()
-                .map(|p| Coordinate(p.0, p.1, p.2))
-                .collect(),
-        };
+        let mut dimension = parse_input(3)(
+            "\
+.#.
+..#
+###",
+        )
+        .unwrap()
+        .1;
         for _ in 0..6 {
             dimension.evolve();
         }
@@ -139,5 +163,26 @@ mod tests {
     #[test]
     fn part_1() {
         assert_eq!(include_str!("inputs/day_17").part_1(), 301);
+    }
+
+    #[test]
+    fn example_2() {
+        let mut dimension = parse_input(4)(
+            "\
+.#.
+..#
+###",
+        )
+        .unwrap()
+        .1;
+        for _ in 0..6 {
+            dimension.evolve();
+        }
+        assert_eq!(dimension.active_cubes.len(), 848);
+    }
+
+    #[test]
+    fn part_2() {
+        assert_eq!(include_str!("inputs/day_17").part_2(), 2424);
     }
 }
