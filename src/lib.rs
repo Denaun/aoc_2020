@@ -1,5 +1,6 @@
 pub mod adapter_array;
 pub mod binary_boarding;
+pub mod conway_cubes;
 pub mod custom_customs;
 pub mod docking_data;
 pub mod encoding_error;
