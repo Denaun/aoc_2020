@@ -113,7 +113,7 @@ fn parse_mem_line(s: &str) -> IResult<&str, (u64, u64)> {
     let (s, value) = parse_integer(s)?;
     Ok((s, (address, value)))
 }
-fn parse_integer<T: FromStr>(s: &str) -> IResult<&str, T> {
+pub fn parse_integer<T: FromStr>(s: &str) -> IResult<&str, T> {
     map_res(digit1, |s: &str| s.parse())(s)
 }
 
