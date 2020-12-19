@@ -6,6 +6,7 @@ pub mod docking_data;
 pub mod encoding_error;
 pub mod handheld_halting;
 pub mod handy_haversacks;
+pub mod monster_messages;
 pub mod operation_order;
 pub mod passport_processing;
 pub mod password_philosophy;
