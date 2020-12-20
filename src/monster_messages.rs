@@ -25,6 +25,45 @@ enum Rule {
 }
 
 fn resolve(rules: &HashMap<RuleId, Rule>, root: &RuleId) -> Option<Parser> {
+    // Special case for part 2.
+    if root == &RuleId(0)
+        && rules.get(&RuleId(0)) == Some(&Rule::Composite(vec![vec![RuleId(8), RuleId(11)]]))
+        && rules.get(&RuleId(8))
+            == Some(&Rule::Composite(vec![
+                vec![RuleId(42)],
+                vec![RuleId(42), RuleId(8)],
+            ]))
+        && rules.get(&RuleId(11))
+            == Some(&Rule::Composite(vec![
+                vec![RuleId(42), RuleId(31)],
+                vec![RuleId(42), RuleId(11), RuleId(31)],
+            ]))
+    {
+        let mut forty_two = resolve(rules, &RuleId(42))?;
+        let mut thirty_one = resolve(rules, &RuleId(31))?;
+        return Some(Box::new(move |s| {
+            // Rule 11 matches 42 N > 0 times and 31 N times. Rule 8 matches 42
+            // M > 0 times in a non-greedy way, which means that it fills any
+            // difference between 42 and 31 above, as long as we have at least 2
+            // matches of 42.
+            let (s, _) = forty_two(s)?;
+            let (mut s, _) = forty_two(s)?;
+            let mut count = 0;
+            while let Ok((s1, _)) = forty_two(s) {
+                s = s1;
+                count += 1;
+            }
+            let (mut s, _) = thirty_one(s)?;
+            for _ in 0..count {
+                if let Ok((s1, _)) = thirty_one(s) {
+                    s = s1;
+                } else {
+                    break;
+                }
+            }
+            Ok((s, ()))
+        }));
+    }
     match rules.get(root)? {
         Rule::Char(c) => {
             let c = *c;
@@ -62,6 +101,20 @@ fn resolve(rules: &HashMap<RuleId, Rule>, root: &RuleId) -> Option<Parser> {
         }
     }
 }
+fn apply_part_2(mut rules: HashMap<RuleId, Rule>) -> HashMap<RuleId, Rule> {
+    rules.insert(
+        RuleId(8),
+        Rule::Composite(vec![vec![RuleId(42)], vec![RuleId(42), RuleId(8)]]),
+    );
+    rules.insert(
+        RuleId(11),
+        Rule::Composite(vec![
+            vec![RuleId(42), RuleId(31)],
+            vec![RuleId(42), RuleId(11), RuleId(31)],
+        ]),
+    );
+    rules
+}
 
 fn parse_input(s: &str) -> IResult<&str, (HashMap<RuleId, Rule>, Vec<&str>)> {
     let (s, rules) = parse_rules(s)?;
@@ -91,6 +144,7 @@ fn parse_rules(s: &str) -> IResult<&str, HashMap<RuleId, Rule>> {
 
 trait Solution {
     fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
 }
 impl Solution for str {
     fn part_1(&self) -> usize {
@@ -102,11 +156,21 @@ impl Solution for str {
             .filter(|message| rule_zero(message).is_ok())
             .count()
     }
+    fn part_2(&self) -> usize {
+        let (rules, messages) = parse_input(self).expect("Failed to parse the input").1;
+        let rules = apply_part_2(rules);
+        let mut rule_zero =
+            all_consuming(resolve(&rules, &RuleId(0)).expect("Failed to resolve rule 0"));
+        messages
+            .iter()
+            .filter(|message| rule_zero(message).is_ok())
+            .count()
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use nom::combinator::all_consuming;
+    use itertools::assert_equal;
 
     use super::*;
 
@@ -193,5 +257,90 @@ aaaabbb"
     #[test]
     fn part_1() {
         assert_eq!(include_str!("inputs/day_19").part_1(), 230);
+    }
+
+    #[test]
+    fn example_2() {
+        let (rules, messages) = parse_input(
+            "\
+42: 9 14 | 10 1
+9: 14 27 | 1 26
+10: 23 14 | 28 1
+1: \"a\"
+11: 42 31
+5: 1 14 | 15 1
+19: 14 1 | 14 14
+12: 24 14 | 19 1
+16: 15 1 | 14 14
+31: 14 17 | 1 13
+6: 14 14 | 1 14
+2: 1 24 | 14 4
+0: 8 11
+13: 14 3 | 1 12
+15: 1 | 14
+17: 14 2 | 1 7
+23: 25 1 | 22 14
+28: 16 1
+4: 1 1
+20: 14 14 | 1 15
+3: 5 14 | 16 1
+27: 1 6 | 14 18
+14: \"b\"
+21: 14 1 | 1 14
+25: 1 1 | 1 14
+22: 14 14
+8: 42
+26: 14 22 | 1 20
+18: 15 15
+7: 14 5 | 1 21
+24: 14 1
+
+abbbbbabbbaaaababbaabbbbabababbbabbbbbbabaaaa
+bbabbbbaabaabba
+babbbbaabbbbbabbbbbbaabaaabaaa
+aaabbbbbbaaaabaababaabababbabaaabbababababaaa
+bbbbbbbaaaabbbbaaabbabaaa
+bbbababbbbaaaaaaaabbababaaababaabab
+ababaaaaaabaaab
+ababaaaaabbbaba
+baabbaaaabbaaaababbaababb
+abbbbabbbbaaaababbbbbbaaaababb
+aaaaabbaabaaaaababaa
+aaaabbaaaabbaaa
+aaaabbaabbaaaaaaabbbabbbaaabbaabaaa
+babaaabbbaaabaababbaabababaaab
+aabbbbbaabbbaaaaaabbbbbababaaaaabbaaabba",
+        )
+        .unwrap()
+        .1;
+        let mut rule_zero = all_consuming(resolve(&rules, &RuleId(0)).unwrap());
+        assert_equal(
+            messages.iter().filter(|message| rule_zero(message).is_ok()),
+            &["bbabbbbaabaabba", "ababaaaaaabaaab", "ababaaaaabbbaba"],
+        );
+        let rules = apply_part_2(rules);
+        let mut rule_zero = all_consuming(resolve(&rules, &RuleId(0)).unwrap());
+        assert_equal(
+            messages.iter().filter(|message| rule_zero(message).is_ok()),
+            &[
+                "bbabbbbaabaabba",
+                "babbbbaabbbbbabbbbbbaabaaabaaa",
+                "aaabbbbbbaaaabaababaabababbabaaabbababababaaa",
+                "bbbbbbbaaaabbbbaaabbabaaa",
+                "bbbababbbbaaaaaaaabbababaaababaabab",
+                "ababaaaaaabaaab",
+                "ababaaaaabbbaba",
+                "baabbaaaabbaaaababbaababb",
+                "abbbbabbbbaaaababbbbbbaaaababb",
+                "aaaaabbaabaaaaababaa",
+                "aaaabbaabbaaaaaaabbbabbbaaabbaabaaa",
+                "aabbbbbaabbbaaaaaabbbbbababaaaaabbaaabba",
+            ],
+        );
+    }
+
+    #[test]
+    fn part_2() {
+        assert_eq!(include_str!("inputs/day_19").part_2(), 346);
     }
 }
