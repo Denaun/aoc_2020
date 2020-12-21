@@ -1,4 +1,5 @@
 pub mod adapter_array;
+pub mod allergen_assessment;
 pub mod binary_boarding;
 pub mod conway_cubes;
 pub mod custom_customs;
