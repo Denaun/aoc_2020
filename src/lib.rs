@@ -2,6 +2,7 @@ pub mod adapter_array;
 pub mod allergen_assessment;
 pub mod binary_boarding;
 pub mod conway_cubes;
+pub mod crab_combat;
 pub mod custom_customs;
 pub mod docking_data;
 pub mod encoding_error;
