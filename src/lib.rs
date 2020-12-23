@@ -20,3 +20,4 @@ pub mod seating_system;
 pub mod shuttle_search;
 pub mod ticket_translation;
 pub mod toboggan_trajectory;
+pub mod crab_cups;
