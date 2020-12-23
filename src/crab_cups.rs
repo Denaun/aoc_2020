@@ -1,15 +1,20 @@
 //! Day 23
 
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 
 use itertools::{iterate, Itertools};
+use num_traits::{FromPrimitive, Num, NumAssignOps};
 
-struct Game {
-    current: u8,
-    next_cup: HashMap<u8, u8>,
+const SLICE_SIZE: usize = 3;
+struct Game<T> {
+    current: T,
+    next_cup: HashMap<T, T>,
 }
-impl Game {
-    pub fn new(mut cups: impl Iterator<Item = u8>) -> Option<Self> {
+impl<T> Game<T>
+where
+    T: Copy + Eq + Ord + Hash + Num + NumAssignOps + FromPrimitive,
+{
+    pub fn new(mut cups: impl Iterator<Item = T>) -> Option<Self> {
         let current = cups.next()?;
         let mut prev = current;
         let mut next_cup = HashMap::new();
@@ -22,12 +27,13 @@ impl Game {
     }
     pub fn do_move(&mut self) {
         // Draw three cups.
-        let move_start = self.next_cup[&self.current];
-        let move_end = self.nth(&move_start, 2);
+        let slice = self.next_slice();
+        let move_start = *slice.first().unwrap();
+        let move_end = *slice.last().unwrap();
         // Remove them.
         self.next_cup.insert(self.current, self.next_cup[&move_end]);
         // Select the destination cup.
-        let dest_start = self.find_destination();
+        let dest_start = self.find_destination(self.current - T::one(), &slice);
         let dest_end = self.next_cup[&dest_start];
         // Place the cups.
         self.next_cup.insert(dest_start, move_start);
@@ -35,43 +41,59 @@ impl Game {
         // Select a new current cup.
         self.current = self.next_cup[&self.current];
     }
-    pub fn unroll<'a>(&'a self, from: &'a u8) -> impl Iterator<Item = &'a u8> {
+    pub fn unroll<'a>(&'a self, from: &'a T) -> impl Iterator<Item = &'a T> {
         iterate(from, move |current| &self.next_cup[*current])
             .skip(1)
             .take_while(move |cup| cup != &from)
     }
-    fn nth(&self, from: &u8, n: usize) -> u8 {
-        if n == 0 {
-            *from
-        } else {
-            self.nth(&self.next_cup[from], n - 1)
-        }
+    fn next_slice(&self) -> [T; SLICE_SIZE] {
+        let mut cups = self.unroll(&self.current).copied();
+        [
+            cups.next().unwrap(),
+            cups.next().unwrap(),
+            cups.next().unwrap(),
+        ]
     }
-    fn find_destination(&self) -> u8 {
-        let valid = self.unroll(&self.current).copied().collect_vec();
-        let mut v = self.current;
-        let (min, max) = valid.iter().minmax().into_option().unwrap();
-        while &v > min {
-            v -= 1;
-            if valid.contains(&v) {
+    fn find_destination(&self, from: T, slice: &[T; SLICE_SIZE]) -> T {
+        let mut v = from;
+        while v > T::zero() {
+            if !slice.contains(&v) {
                 return v;
             }
+            v -= T::one();
         }
-        *max
+        self.find_destination(T::from_usize(self.next_cup.len()).unwrap(), slice)
     }
+}
+
+fn parse_part_1<'a>(s: &'a str) -> impl Iterator<Item = u8> + 'a {
+    s.bytes().map(|b| b - b'0')
+}
+fn parse_part_2<'a>(s: &'a str) -> impl Iterator<Item = u32> + 'a {
+    s.bytes()
+        .map(|b| (b - b'0') as u32)
+        .chain((s.len() as u32 + 1)..=1_000_000)
 }
 
 trait Solution {
     fn part_1(&self) -> String;
+    fn part_2(&self) -> u32;
 }
 impl Solution for &str {
     fn part_1(&self) -> String {
-        let mut game = Game::new(self.bytes()).unwrap();
+        let mut game = Game::new(parse_part_1(self)).unwrap();
         for _ in 0..100 {
             game.do_move();
         }
-        String::from_utf8(game.unroll(&b'1').copied().collect_vec())
-            .expect("Failed to parse the input")
+        let ret = game.unroll(&1).join("");
+        ret
+    }
+    fn part_2(&self) -> u32 {
+        let mut game = Game::new(parse_part_2(self)).unwrap();
+        for _ in 0..10_000_000 {
+            game.do_move();
+        }
+        game.unroll(&1).take(2).product()
     }
 }
 
@@ -83,26 +105,40 @@ mod tests {
 
     #[test]
     fn example_1() {
-        let mut game = Game::new("389125467".bytes()).unwrap();
-        assert_eq!(game.current, b'3');
+        let mut game = Game::new(parse_part_1(&"389125467")).unwrap();
+        assert_eq!(game.current, 3);
         game.do_move();
-        assert_equal(game.unroll(&b'3'), b"28915467");
-        assert_eq!(game.current, b'2');
+        assert_eq!(game.unroll(&3).join(""), "28915467");
+        assert_eq!(game.current, 2);
         game.do_move();
-        assert_equal(game.unroll(&b'3'), b"25467891");
-        assert_eq!(game.current, b'5');
+        assert_eq!(game.unroll(&3).join(""), "25467891");
+        assert_eq!(game.current, 5);
         for _ in 0..8 {
             game.do_move();
         }
-        assert_equal(game.unroll(&b'1'), b"92658374");
+        assert_eq!(game.unroll(&1).join(""), "92658374");
         for _ in 0..90 {
             game.do_move();
         }
-        assert_equal(game.unroll(&b'1'), b"67384529");
+        assert_eq!(game.unroll(&1).join(""), "67384529");
     }
 
     #[test]
     fn part_1() {
         assert_eq!(include_str!("inputs/day_23").part_1(), "45286397");
+    }
+
+    #[test]
+    fn example_2() {
+        let mut game = Game::new(parse_part_2(&"389125467")).unwrap();
+        for _ in 0..10_000_000 {
+            game.do_move()
+        }
+        assert_equal(game.unroll(&1).take(2), &[934001, 159792]);
+    }
+
+    #[test]
+    fn part_2() {
+        assert_eq!(include_str!("inputs/day_23").part_2(), 836_763_710);
     }
 }
