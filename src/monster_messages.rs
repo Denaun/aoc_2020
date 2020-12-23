@@ -341,6 +341,6 @@ aabbbbbaabbbaaaaaabbbbbababaaaaabbaaabba",
 
     #[test]
     fn part_2() {
-        assert_eq!(include_str!("inputs/day_19").part_2(), 346);
+        assert_eq!(include_str!("inputs/day_19").part_2(), 341);
     }
 }
