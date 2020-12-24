@@ -1,6 +1,6 @@
 //! Day 24
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use nom::{
     branch::alt,
@@ -35,6 +35,16 @@ impl Direction {
     }
 }
 
+trait CoordExt {
+    fn step_towards(self, dir: Direction) -> Self;
+}
+impl CoordExt for Coord {
+    fn step_towards(self, dir: Direction) -> Self {
+        let offset = dir.into_axial_offset();
+        (self.0 + offset.0, self.1 + offset.1)
+    }
+}
+
 fn find_black_tiles(flips: impl Iterator<Item = Coord>) -> HashSet<Coord> {
     let mut flipped = HashSet::new();
     for flip in flips {
@@ -47,10 +57,51 @@ fn find_black_tiles(flips: impl Iterator<Item = Coord>) -> HashSet<Coord> {
     flipped
 }
 fn fold_axial_coordinates(dirs: impl IntoIterator<Item = Direction>) -> Coord {
-    dirs.into_iter().fold((0, 0), |tot, dir| {
-        let offset = dir.into_axial_offset();
-        (tot.0 + offset.0, tot.1 + offset.1)
-    })
+    dirs.into_iter()
+        .fold((0, 0), |tot, dir| tot.step_towards(dir))
+}
+
+struct ArtExhibit {
+    pub black_tiles: HashSet<Coord>,
+}
+impl ArtExhibit {
+    pub fn next_day(&mut self) {
+        let mut to_white = Vec::new();
+        let mut to_black = HashMap::<Coord, usize>::new();
+        for tile in self.black_tiles.iter() {
+            let neighbors = Self::neighbors(tile);
+            let n_black = neighbors
+                .iter()
+                .filter(|&n| self.black_tiles.contains(n))
+                .count();
+            if n_black == 0 || n_black > 2 {
+                to_white.push(*tile);
+            }
+            for tile in &neighbors {
+                if !self.black_tiles.contains(&tile) {
+                    *to_black.entry(*tile).or_default() += 1;
+                }
+            }
+        }
+        for tile in to_white {
+            self.black_tiles.remove(&tile);
+        }
+        for (tile, n_black) in to_black {
+            if n_black == 2 {
+                self.black_tiles.insert(tile);
+            }
+        }
+    }
+    fn neighbors(tile: &Coord) -> [Coord; 6] {
+        [
+            tile.step_towards(Direction::East),
+            tile.step_towards(Direction::SouthEast),
+            tile.step_towards(Direction::SouthWest),
+            tile.step_towards(Direction::West),
+            tile.step_towards(Direction::NorthWest),
+            tile.step_towards(Direction::NorthEast),
+        ]
+    }
 }
 
 fn parse_input(s: &str) -> IResult<&str, Vec<Vec<Direction>>> {
@@ -69,6 +120,7 @@ fn parse_direction(s: &str) -> IResult<&str, Direction> {
 
 trait Solution {
     fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
 }
 impl Solution for str {
     fn part_1(&self) -> usize {
@@ -80,6 +132,21 @@ impl Solution for str {
                 .map(fold_axial_coordinates),
         )
         .len()
+    }
+    fn part_2(&self) -> usize {
+        let mut floor = ArtExhibit {
+            black_tiles: find_black_tiles(
+                parse_input(self)
+                    .expect("Failed to parse the input")
+                    .1
+                    .into_iter()
+                    .map(fold_axial_coordinates),
+            ),
+        };
+        for _ in 0..100 {
+            floor.next_day();
+        }
+        floor.black_tiles.len()
     }
 }
 
@@ -116,8 +183,106 @@ wseweeenwnesenwwwswnew
             10
         );
     }
+
     #[test]
     fn part_1() {
-        assert_eq!(include_str!("inputs/day_24").part_1(), 142);
+        assert_eq!(include_str!("inputs/day_24").part_1(), 394);
+    }
+
+    #[test]
+    fn example_2() {
+        let mut floor = ArtExhibit {
+            black_tiles: find_black_tiles(
+                parse_input(
+                    "\
+sesenwnenenewseeswwswswwnenewsewsw
+neeenesenwnwwswnenewnwwsewnenwseswesw
+seswneswswsenwwnwse
+nwnwneseeswswnenewneswwnewseswneseene
+swweswneswnenwsewnwneneseenw
+eesenwseswswnenwswnwnwsewwnwsene
+sewnenenenesenwsewnenwwwse
+wenwwweseeeweswwwnwwe
+wsweesenenewnwwnwsenewsenwwsesesenwne
+neeswseenwwswnwswswnw
+nenwswwsewswnenenewsenwsenwnesesenew
+enewnwewneswsewnwswenweswnenwsenwsw
+sweneswneswneneenwnewenewwneswswnese
+swwesenesewenwneswnwwneseswwne
+enesenwswwswneneswsenwnewswseenwsese
+wnwnesenesenenwwnenwsewesewsesesew
+nenewswnwewswnenesenwnesewesw
+eneswnwswnwsenenwnwnwwseeswneewsenese
+neswnwewnwnwseenwseesewsenwsweewe
+wseweeenwnesenwwwswnew
+",
+                )
+                .unwrap()
+                .1
+                .into_iter()
+                .map(fold_axial_coordinates),
+            ),
+        };
+        floor.next_day();
+        assert_eq!(floor.black_tiles.len(), 15);
+        floor.next_day();
+        assert_eq!(floor.black_tiles.len(), 12);
+        floor.next_day();
+        assert_eq!(floor.black_tiles.len(), 25);
+        floor.next_day();
+        assert_eq!(floor.black_tiles.len(), 14);
+        floor.next_day();
+        assert_eq!(floor.black_tiles.len(), 23);
+        floor.next_day();
+        assert_eq!(floor.black_tiles.len(), 28);
+        floor.next_day();
+        assert_eq!(floor.black_tiles.len(), 41);
+        floor.next_day();
+        assert_eq!(floor.black_tiles.len(), 37);
+        floor.next_day();
+        assert_eq!(floor.black_tiles.len(), 49);
+        floor.next_day();
+        assert_eq!(floor.black_tiles.len(), 37);
+        for _ in 0..10 {
+            floor.next_day();
+        }
+        assert_eq!(floor.black_tiles.len(), 132);
+        for _ in 0..10 {
+            floor.next_day();
+        }
+        assert_eq!(floor.black_tiles.len(), 259);
+        for _ in 0..10 {
+            floor.next_day();
+        }
+        assert_eq!(floor.black_tiles.len(), 406);
+        for _ in 0..10 {
+            floor.next_day();
+        }
+        assert_eq!(floor.black_tiles.len(), 566);
+        for _ in 0..10 {
+            floor.next_day();
+        }
+        assert_eq!(floor.black_tiles.len(), 788);
+        for _ in 0..10 {
+            floor.next_day();
+        }
+        assert_eq!(floor.black_tiles.len(), 1106);
+        for _ in 0..10 {
+            floor.next_day();
+        }
+        assert_eq!(floor.black_tiles.len(), 1373);
+        for _ in 0..10 {
+            floor.next_day();
+        }
+        assert_eq!(floor.black_tiles.len(), 1844);
+        for _ in 0..10 {
+            floor.next_day();
+        }
+        assert_eq!(floor.black_tiles.len(), 2208);
+    }
+
+    #[test]
+    fn part_2() {
+        assert_eq!(include_str!("inputs/day_24").part_2(), 4036);
     }
 }
