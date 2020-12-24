@@ -10,6 +10,7 @@ pub mod encoding_error;
 pub mod handheld_halting;
 pub mod handy_haversacks;
 pub mod jurassic_jigsaw;
+pub mod lobby_layout;
 pub mod monster_messages;
 pub mod operation_order;
 pub mod passport_processing;
