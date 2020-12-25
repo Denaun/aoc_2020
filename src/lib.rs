@@ -1,6 +1,7 @@
 pub mod adapter_array;
 pub mod allergen_assessment;
 pub mod binary_boarding;
+pub mod combo_breaker;
 pub mod conway_cubes;
 pub mod crab_combat;
 pub mod crab_cups;
