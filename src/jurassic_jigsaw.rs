@@ -23,28 +23,16 @@ fn find_corners(tiles: &[(TileId, Tile)]) -> Vec<TileId> {
         let bottom = tile.last().unwrap().to_string();
         let left = tile.iter().map(|row| row.chars().next().unwrap()).join("");
         let right = tile.iter().map(|row| row.chars().last().unwrap()).join("");
-        borders
-            .entry(top.chars().rev().collect())
-            .or_default()
-            .push(*id);
-        borders
-            .entry(bottom.chars().rev().collect())
-            .or_default()
-            .push(*id);
-        borders
-            .entry(left.chars().rev().collect())
-            .or_default()
-            .push(*id);
-        borders
-            .entry(right.chars().rev().collect())
-            .or_default()
-            .push(*id);
+        borders.entry(reversed(&top)).or_default().push(*id);
+        borders.entry(reversed(&bottom)).or_default().push(*id);
+        borders.entry(reversed(&left)).or_default().push(*id);
+        borders.entry(reversed(&right)).or_default().push(*id);
         borders.entry(top).or_default().push(*id);
         borders.entry(bottom).or_default().push(*id);
         borders.entry(left).or_default().push(*id);
         borders.entry(right).or_default().push(*id);
     }
-    let edge = borders
+    let edges = borders
         .into_iter()
         .filter_map(|(_, tiles)| {
             if tiles.len() == 1 {
@@ -54,16 +42,20 @@ fn find_corners(tiles: &[(TileId, Tile)]) -> Vec<TileId> {
             }
         })
         .collect_vec();
-    edge.iter()
+    edges
+        .iter()
         .unique()
         .filter_map(|id| {
-            if edge.iter().filter(|&i| i == id).count() == 4 {
+            if edges.iter().filter(|&i| i == id).count() == 4 {
                 Some(*id)
             } else {
                 None
             }
         })
         .collect_vec()
+}
+fn reversed(s: &str) -> String {
+    s.chars().rev().collect()
 }
 
 fn parse_input(s: &str) -> IResult<&str, Vec<(TileId, Tile)>> {
@@ -89,16 +81,13 @@ impl Solution for str {
         find_corners(&tiles).iter().map(|id| id.0).product()
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use itertools::assert_equal;
 
-    #[test]
-    fn example_input() {
-        assert_eq!(
-            parse_input(
-                "\
+    const EXAMPLE_INPUT: &str = "\
 Tile 2311:
 ..##.#..#.
 ##..#.....
@@ -205,8 +194,12 @@ Tile 3079:
 #.#####.##
 ..#.###...
 ..#.......
-..#.###..."
-            ),
+..#.###...";
+
+    #[test]
+    fn example_input() {
+        assert_eq!(
+            parse_input(EXAMPLE_INPUT),
             Ok((
                 "",
                 [
@@ -354,165 +347,11 @@ Tile 3079:
     }
 
     #[test]
-    fn toto() {
-        // println!(
-        //     "{:?}",
-        //     build_border_maps(&[(
-        //         TileId(2311),
-        //         vec![
-        //             "..##.#..#.",
-        //             "##..#.....",
-        //             "#...##..#.",
-        //             "####.#...#",
-        //             "##.##.###.",
-        //             "##...#.###",
-        //             ".#.#.#..##",
-        //             "..#....#..",
-        //             "###...#.#.",
-        //             "..###..###",
-        //         ],
-        //     ),])
-        // );
+    fn example_1() {
         assert_equal(
-            find_corners(&[
-                (
-                    TileId(2311),
-                    vec![
-                        "..##.#..#.",
-                        "##..#.....",
-                        "#...##..#.",
-                        "####.#...#",
-                        "##.##.###.",
-                        "##...#.###",
-                        ".#.#.#..##",
-                        "..#....#..",
-                        "###...#.#.",
-                        "..###..###",
-                    ],
-                ),
-                (
-                    TileId(1951),
-                    vec![
-                        "#.##...##.",
-                        "#.####...#",
-                        ".....#..##",
-                        "#...######",
-                        ".##.#....#",
-                        ".###.#####",
-                        "###.##.##.",
-                        ".###....#.",
-                        "..#.#..#.#",
-                        "#...##.#..",
-                    ],
-                ),
-                (
-                    TileId(1171),
-                    vec![
-                        "####...##.",
-                        "#..##.#..#",
-                        "##.#..#.#.",
-                        ".###.####.",
-                        "..###.####",
-                        ".##....##.",
-                        ".#...####.",
-                        "#.##.####.",
-                        "####..#...",
-                        ".....##...",
-                    ],
-                ),
-                (
-                    TileId(1427),
-                    vec![
-                        "###.##.#..",
-                        ".#..#.##..",
-                        ".#.##.#..#",
-                        "#.#.#.##.#",
-                        "....#...##",
-                        "...##..##.",
-                        "...#.#####",
-                        ".#.####.#.",
-                        "..#..###.#",
-                        "..##.#..#.",
-                    ],
-                ),
-                (
-                    TileId(1489),
-                    vec![
-                        "##.#.#....",
-                        "..##...#..",
-                        ".##..##...",
-                        "..#...#...",
-                        "#####...#.",
-                        "#..#.#.#.#",
-                        "...#.#.#..",
-                        "##.#...##.",
-                        "..##.##.##",
-                        "###.##.#..",
-                    ],
-                ),
-                (
-                    TileId(2473),
-                    vec![
-                        "#....####.",
-                        "#..#.##...",
-                        "#.##..#...",
-                        "######.#.#",
-                        ".#...#.#.#",
-                        ".#########",
-                        ".###.#..#.",
-                        "########.#",
-                        "##...##.#.",
-                        "..###.#.#.",
-                    ],
-                ),
-                (
-                    TileId(2971),
-                    vec![
-                        "..#.#....#",
-                        "#...###...",
-                        "#.#.###...",
-                        "##.##..#..",
-                        ".#####..##",
-                        ".#..####.#",
-                        "#..#.#..#.",
-                        "..####.###",
-                        "..#.#.###.",
-                        "...#.#.#.#",
-                    ],
-                ),
-                (
-                    TileId(2729),
-                    vec![
-                        "...#.#.#.#",
-                        "####.#....",
-                        "..#.#.....",
-                        "....#..#.#",
-                        ".##..##.#.",
-                        ".#.####...",
-                        "####.#.#..",
-                        "##.####...",
-                        "##..#.##..",
-                        "#.##...##.",
-                    ],
-                ),
-                (
-                    TileId(3079),
-                    vec![
-                        "#.#.#####.",
-                        ".#..######",
-                        "..#.......",
-                        "######....",
-                        "####.#..#.",
-                        ".#...#.##.",
-                        "#.#####.##",
-                        "..#.###...",
-                        "..#.......",
-                        "..#.###...",
-                    ],
-                ),
-            ])
-            .iter()
-            .sorted(),
+            find_corners(&parse_input(EXAMPLE_INPUT).unwrap().1)
+                .iter()
+                .sorted(),
             &[TileId(1171), TileId(1951), TileId(2971), TileId(3079)],
         );
     }
