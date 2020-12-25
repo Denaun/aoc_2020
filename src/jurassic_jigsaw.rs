@@ -12,12 +12,30 @@ use nom::{
     sequence::{delimited, pair, separated_pair},
     IResult,
 };
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
+
+const SEA_MONSTER: [(usize, usize); 15] = [
+    (0, 18),
+    (1, 0),
+    (1, 5),
+    (1, 6),
+    (1, 11),
+    (1, 12),
+    (1, 17),
+    (1, 18),
+    (1, 19),
+    (2, 1),
+    (2, 4),
+    (2, 7),
+    (2, 10),
+    (2, 13),
+    (2, 16),
+];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Tile {
-    id: usize,
-    data: Vec<BitVec>,
+    pub id: usize,
+    pub data: Vec<BitVec>,
     sides: HashSet<BitVec>,
     sides_reversed: HashSet<BitVec>,
 }
@@ -37,6 +55,30 @@ impl Tile {
             sides_reversed,
         }
     }
+    pub fn from_image(id: usize, tiles: Vec<Vec<Tile>>) -> Self {
+        let rows_per_tile = tiles
+            .first()
+            .and_then(|row| row.first().map(|tile| tile.data.len()))
+            .unwrap_or_default();
+        Self::new(
+            id,
+            tiles
+                .into_iter()
+                .flat_map(|mut row| {
+                    assert!(row.iter().all(|tile| tile.data.len() == rows_per_tile));
+                    (1..rows_per_tile - 1).map(move |x| {
+                        row.iter_mut()
+                            .flat_map(|tile| {
+                                tile.data[x].pop();
+                                tile.data[x].iter().skip(1)
+                            })
+                            .collect()
+                    })
+                })
+                .collect(),
+        )
+    }
+
     pub fn shared_side_count(&self, tiles: &[Tile]) -> usize {
         self.sides
             .iter()
@@ -50,6 +92,88 @@ impl Tile {
     }
     fn has_side(&self, side: &BitSlice) -> bool {
         self.sides.contains(side) || self.sides_reversed.contains(side)
+    }
+
+    pub fn is_side_shared(&self, orientation: Orientation, tiles: &[Tile]) -> bool {
+        let side = Self::side_facing(&self.data, orientation);
+        tiles
+            .iter()
+            .any(|tile| tile.id != self.id && tile.has_side(&side))
+    }
+    pub fn find_and_orient_neighbor(&self, my_side: Orientation, tiles: &[Tile]) -> Option<Tile> {
+        let their_side = my_side.opposite();
+        let my_side = Self::side_facing(&self.data, my_side);
+        tiles
+            .iter()
+            .find(|tile| tile.id != self.id && tile.has_side(&my_side))
+            .and_then(|tile| tile.clone().orient_to_side(&my_side, their_side))
+    }
+    fn orient_to_side(self, side: &BitSlice, orientation: Orientation) -> Option<Self> {
+        self.orientations()
+            .find(move |this| Self::side_facing(&this.data, orientation) == side)
+    }
+    pub fn orientations(self) -> impl Iterator<Item = Self> {
+        iterate((self, 0), |(this, ix)| {
+            (
+                if ix % 4 == 0 {
+                    this.clone().flip_h()
+                } else {
+                    this.clone().rotate_clockwise()
+                },
+                ix + 1,
+            )
+        })
+        .take(8)
+        .map(|(this, _)| this)
+    }
+    fn flip_h(self) -> Self {
+        Self {
+            data: self
+                .data
+                .into_iter()
+                .map(|mut row| {
+                    row.reverse();
+                    row
+                })
+                .collect(),
+            ..self
+        }
+    }
+    fn rotate_clockwise(self) -> Self {
+        Self {
+            data: (0..self.data.len())
+                .map(|x| {
+                    (0..self.data[x].len())
+                        .rev()
+                        .map(|y| self.data[y][x])
+                        .collect()
+                })
+                .collect(),
+            ..self
+        }
+    }
+
+    pub fn mask_all(&mut self, mask: &[(usize, usize)]) -> bool {
+        let max_x = mask.iter().map(|(x, _)| x).max();
+        let max_y = mask.iter().map(|(_, y)| y).max();
+        match (max_x, max_y) {
+            (Some(max_x), Some(max_y)) => {
+                let mut found = false;
+                for x in 0..self.data.len() - max_x {
+                    for y in 0..self.data.len() - max_y {
+                        let actual_coords = mask.iter().map(|(x0, y0)| (x0 + x, y0 + y));
+                        if actual_coords.clone().all(|(x, y)| self.data[x][y]) {
+                            found = true;
+                            for (x, y) in actual_coords {
+                                self.data[x].set(y, false);
+                            }
+                        }
+                    }
+                }
+                found
+            }
+            _ => false,
+        }
     }
 
     fn side_facing(data: &[BitVec], orientation: Orientation) -> BitVec {
@@ -70,17 +194,61 @@ enum Orientation {
     Right,
 }
 impl Orientation {
-    fn iter() -> impl Iterator<Item = Self> + Clone {
+    pub fn iter() -> impl Iterator<Item = Self> + Clone {
         [Self::Top, Self::Bottom, Self::Left, Self::Right]
             .iter()
             .copied()
     }
+    pub fn opposite(self) -> Self {
+        match self {
+            Self::Top => Self::Bottom,
+            Self::Bottom => Self::Top,
+            Self::Left => Self::Right,
+            Self::Right => Self::Left,
+        }
+    }
 }
+
+// struct Orientations<'a> {
+//     tile: Tile,
+//     dummy: ,
+// }
 
 fn corners<'a>(tiles: &'a [Tile]) -> impl Iterator<Item = &'a Tile> {
     tiles
         .iter()
         .filter(move |tile| tile.shared_side_count(tiles) == 2)
+}
+fn build_image(tiles: &[Tile]) -> Option<Vec<Vec<Tile>>> {
+    let top_left = corners(tiles)
+        .next()?
+        .clone()
+        .orientations()
+        .find(|tile| {
+            !tile.is_side_shared(Orientation::Top, tiles)
+                && !tile.is_side_shared(Orientation::Left, tiles)
+        })
+        .unwrap();
+
+    let mut image = build_line(tiles, top_left, Orientation::Bottom)
+        .map(|tile| vec![tile])
+        .collect_vec();
+    for row in &mut image {
+        *row = build_line(tiles, row.pop().unwrap(), Orientation::Right).collect_vec();
+    }
+    Some(image)
+}
+fn build_line<'a>(
+    tiles: &'a [Tile],
+    start: Tile,
+    side: Orientation,
+) -> impl Iterator<Item = Tile> + 'a {
+    iterate(Some(start), move |tile| {
+        tile.as_ref()
+            .and_then(|tile| tile.find_and_orient_neighbor(side, tiles))
+    })
+    .take_while(Option::is_some)
+    .flatten()
 }
 
 fn parse_input(s: &str) -> IResult<&str, Vec<Tile>> {
@@ -108,11 +276,34 @@ fn parse_tile_data(s: &str) -> IResult<&str, Vec<BitVec>> {
 
 trait Solution {
     fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
 }
 impl Solution for str {
     fn part_1(&self) -> usize {
         let tiles = parse_input(self).expect("Failed to parse the input").1;
         corners(&tiles).map(|tile| tile.id).product()
+    }
+    fn part_2(&self) -> usize {
+        let tiles = parse_input(self).expect("Failed to parse the input").1;
+        let image = Tile::from_image(
+            0,
+            build_image(&tiles).expect("Failed to build the full image"),
+        );
+        image
+            .orientations()
+            .find_map(|mut tile| {
+                if tile.mask_all(&SEA_MONSTER) {
+                    Some(tile)
+                } else {
+                    None
+                }
+            })
+            .expect("Failed to find any sea monster")
+            .data
+            .into_iter()
+            .flat_map(|row| row.into_iter())
+            .filter(|&b| b)
+            .count()
     }
 }
 
@@ -236,7 +427,7 @@ Tile 3079:
             parse_input(EXAMPLE_INPUT),
             Ok((
                 "",
-                [
+                vec![
                     Tile::new(
                         2311,
                         vec![
@@ -373,9 +564,6 @@ Tile 3079:
                         ]
                     )
                 ]
-                .iter()
-                .cloned()
-                .collect()
             ))
         );
     }
@@ -393,5 +581,68 @@ Tile 3079:
     #[test]
     fn part_1() {
         assert_eq!(include_str!("inputs/day_20").part_1(), 107_399_567_124_539);
+    }
+
+    #[test]
+    fn example_2() {
+        let image = Tile::from_image(
+            0,
+            build_image(&parse_input(EXAMPLE_INPUT).unwrap().1).unwrap(),
+        )
+        .orient_to_side(
+            &bits![0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1,],
+            Orientation::Top,
+        )
+        .unwrap();
+        assert_eq!(
+            image.data,
+            vec![
+                bitvec![0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1,],
+                bitvec![1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0,],
+                bitvec![1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0,],
+                bitvec![1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1,],
+                bitvec![1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1,],
+                bitvec![0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1,],
+                bitvec![0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0,],
+                bitvec![0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,],
+                bitvec![1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0,],
+                bitvec![1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0,],
+                bitvec![1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1,],
+                bitvec![1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1,],
+                bitvec![1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0,],
+                bitvec![0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1,],
+                bitvec![0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 0,],
+                bitvec![1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0,],
+                bitvec![0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0,],
+                bitvec![0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1,],
+                bitvec![0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1,],
+                bitvec![1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0,],
+                bitvec![1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1,],
+                bitvec![1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1,],
+                bitvec![0, 1, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0,],
+                bitvec![0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1,],
+            ]
+        );
+        assert_eq!(
+            image
+                .orientations()
+                .find_map(|mut tile| if tile.mask_all(&SEA_MONSTER) {
+                    Some(tile)
+                } else {
+                    None
+                })
+                .unwrap()
+                .data
+                .into_iter()
+                .flat_map(|row| row.into_iter())
+                .filter(|&b| b)
+                .count(),
+            273
+        );
+    }
+
+    #[test]
+    fn part_2() {
+        assert_eq!(include_str!("inputs/day_20").part_2(), 1555);
     }
 }
