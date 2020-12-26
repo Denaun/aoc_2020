@@ -11,6 +11,8 @@ use nom::{
 };
 use std::{cmp::PartialOrd, collections::HashSet, str::FromStr};
 
+use crate::docking_data::parse_integer;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Range<T> {
     min: T,
@@ -108,9 +110,6 @@ fn parse_range_union<T: FromStr>(s: &str) -> IResult<&str, RangeUnion<T>> {
 fn parse_range<T: FromStr>(s: &str) -> IResult<&str, Range<T>> {
     let (s, (min, max)) = separated_pair(parse_integer, char('-'), parse_integer)(s)?;
     Ok((s, Range { min, max }))
-}
-fn parse_integer<T: FromStr>(s: &str) -> IResult<&str, T> {
-    map_res(digit1, |s: &str| s.parse())(s)
 }
 
 trait Solution {

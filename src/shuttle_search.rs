@@ -13,6 +13,8 @@ use std::{
     str::FromStr,
 };
 
+use crate::docking_data::parse_integer;
+
 fn wait_time<T>(from: T, period: T) -> T
 where
     T: Sub<Output = T> + Rem<Output = T> + Copy,
@@ -71,10 +73,6 @@ fn chinese_remainder_inv(inv_residues: &[i64], modulii: &[i64]) -> Option<i64> {
         .map(|(residue, modulus)| modulus - residue)
         .collect();
     chinese_remainder(&residues, modulii)
-}
-
-fn parse_integer<T: FromStr>(s: &str) -> IResult<&str, T> {
-    map_res(digit1, |s: &str| s.parse())(s)
 }
 
 fn parse_input<T: FromStr + Clone>(s: &str) -> IResult<&str, (T, Vec<Option<T>>)> {
