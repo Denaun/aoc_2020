@@ -1,5 +1,32 @@
 //! Day 5
 
+trait Solution {
+    fn part_1(&self) -> u16;
+    fn part_2(&self) -> u16;
+}
+impl Solution for str {
+    fn part_1(&self) -> u16 {
+        parsers::input(self)
+            .expect("Failed to parse the input")
+            .into_iter()
+            .map(|pass| pass.id())
+            .max()
+            .expect("Empty input")
+    }
+    fn part_2(&self) -> u16 {
+        let mut ids = parsers::input(self)
+            .expect("Failed to parse the input")
+            .into_iter()
+            .map(|pass| pass.id())
+            .collect::<Vec<_>>();
+        ids.sort();
+        ids.iter()
+            .zip(ids.iter().skip(1))
+            .find_map(|(&a, &b)| if b == a + 2 { Some(a + 1) } else { None })
+            .expect("Seat not found")
+    }
+}
+
 pub trait Pass {
     fn id(&self) -> u16;
 }
@@ -50,33 +77,6 @@ mod parsers {
             s = s1;
         }
         Ok((s, col))
-    }
-}
-
-trait Solution {
-    fn part_1(&self) -> u16;
-    fn part_2(&self) -> u16;
-}
-impl Solution for str {
-    fn part_1(&self) -> u16 {
-        parsers::input(self)
-            .expect("Failed to parse the input")
-            .iter()
-            .map(|pass| pass.id())
-            .max()
-            .expect("Empty input")
-    }
-    fn part_2(&self) -> u16 {
-        let mut ids = parsers::input(self)
-            .expect("Failed to parse the input")
-            .iter()
-            .map(|pass| pass.id())
-            .collect::<Vec<_>>();
-        ids.sort();
-        ids.iter()
-            .zip(ids.iter().skip(1))
-            .find_map(|(&a, &b)| if b == a + 2 { Some(a + 1) } else { None })
-            .expect("Seat not found")
     }
 }
 

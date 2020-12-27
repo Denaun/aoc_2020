@@ -1,10 +1,32 @@
 //! Day 17
 
-use itertools::Itertools;
 use std::{
     collections::{HashMap, HashSet},
     iter::repeat,
 };
+
+use itertools::Itertools;
+
+trait Solution {
+    fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
+}
+impl Solution for str {
+    fn part_1(&self) -> usize {
+        let mut dimension = parsers::input(3)(self).expect("Failed to parse the input");
+        for _ in 0..6 {
+            dimension.evolve();
+        }
+        dimension.active_cubes.len()
+    }
+    fn part_2(&self) -> usize {
+        let mut dimension = parsers::input(4)(self).expect("Failed to parse the input");
+        for _ in 0..6 {
+            dimension.evolve();
+        }
+        dimension.active_cubes.len()
+    }
+}
 
 type Coordinate = Vec<i64>;
 
@@ -81,27 +103,6 @@ mod parsers {
                     .collect(),
             })
         }
-    }
-}
-
-trait Solution {
-    fn part_1(&self) -> usize;
-    fn part_2(&self) -> usize;
-}
-impl Solution for str {
-    fn part_1(&self) -> usize {
-        let mut dimension = parsers::input(3)(self).expect("Failed to parse the input");
-        for _ in 0..6 {
-            dimension.evolve();
-        }
-        dimension.active_cubes.len()
-    }
-    fn part_2(&self) -> usize {
-        let mut dimension = parsers::input(4)(self).expect("Failed to parse the input");
-        for _ in 0..6 {
-            dimension.evolve();
-        }
-        dimension.active_cubes.len()
     }
 }
 

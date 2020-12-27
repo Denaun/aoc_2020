@@ -4,6 +4,41 @@ use std::{cmp::PartialOrd, collections::HashSet};
 
 use itertools::Itertools;
 
+trait Solution {
+    fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
+}
+impl Solution for str {
+    fn part_1(&self) -> usize {
+        let (rules, _, tickets) = parsers::input(self).expect("Failed to parse the input");
+        let rules = rules.into_iter().map(|(_, rule)| rule).collect::<Vec<_>>();
+        tickets
+            .iter()
+            .flat_map(|ticket| invalid_fields(ticket, &rules))
+            .sum()
+    }
+    fn part_2(&self) -> usize {
+        let (named_rules, your_ticket, tickets) =
+            parsers::input::<usize>(self).expect("Failed to parse the input");
+        let rules = named_rules
+            .iter()
+            .map(|(_, rule)| *rule)
+            .collect::<Vec<_>>();
+        find_fields(&tickets, &rules)
+            .expect("Field mapping not found")
+            .into_iter()
+            .enumerate()
+            .filter_map(|(rule_ix, field_ix)| {
+                if named_rules[rule_ix].0.starts_with("departure") {
+                    Some(your_ticket[field_ix])
+                } else {
+                    None
+                }
+            })
+            .product()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Range<T> {
     min: T,
@@ -119,41 +154,6 @@ mod parsers {
     fn range<T: FromStr>(s: &str) -> IResult<&str, Range<T>> {
         let (s, (min, max)) = separated_pair(integer, char('-'), integer)(s)?;
         Ok((s, Range { min, max }))
-    }
-}
-
-trait Solution {
-    fn part_1(&self) -> usize;
-    fn part_2(&self) -> usize;
-}
-impl Solution for str {
-    fn part_1(&self) -> usize {
-        let (rules, _, tickets) = parsers::input(self).expect("Failed to parse the input");
-        let rules = rules.into_iter().map(|(_, rule)| rule).collect::<Vec<_>>();
-        tickets
-            .iter()
-            .flat_map(|ticket| invalid_fields(ticket, &rules))
-            .sum()
-    }
-    fn part_2(&self) -> usize {
-        let (named_rules, your_ticket, tickets) =
-            parsers::input::<usize>(self).expect("Failed to parse the input");
-        let rules = named_rules
-            .iter()
-            .map(|(_, rule)| *rule)
-            .collect::<Vec<_>>();
-        find_fields(&tickets, &rules)
-            .expect("Field mapping not found")
-            .iter()
-            .enumerate()
-            .filter_map(|(rule_ix, &field_ix)| {
-                if named_rules[rule_ix].0.starts_with("departure") {
-                    Some(your_ticket[field_ix])
-                } else {
-                    None
-                }
-            })
-            .product()
     }
 }
 

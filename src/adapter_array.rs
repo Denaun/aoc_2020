@@ -1,8 +1,27 @@
 //! Day 10
 
+use std::{collections::HashMap, hash::Hash, iter::once};
+
 use itertools::Itertools;
 use num_traits::{NumOps, Unsigned};
-use std::{collections::HashMap, hash::Hash, iter::once};
+
+trait Solution {
+    fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
+}
+impl Solution for str {
+    fn part_1(&self) -> usize {
+        let distribution: HashMap<u32, _> = calculate_distribution(diff(adapter_chain(
+            &parsers::input(self).expect("Failed to parse the input"),
+        )));
+        distribution[&1] * distribution[&3]
+    }
+    fn part_2(&self) -> usize {
+        let chain: Vec<usize> =
+            adapter_chain(&parsers::input(self).expect("Failed to parse the input")).collect_vec();
+        count_arrangements(&chain)
+    }
+}
 
 const MAX_OFFSET: u8 = 3;
 
@@ -51,24 +70,6 @@ where
 
 mod parsers {
     pub use crate::parsers::number_list as input;
-}
-
-trait Solution {
-    fn part_1(&self) -> usize;
-    fn part_2(&self) -> usize;
-}
-impl Solution for str {
-    fn part_1(&self) -> usize {
-        let distribution: HashMap<u32, _> = calculate_distribution(diff(adapter_chain(
-            &parsers::input(self).expect("Failed to parse the input"),
-        )));
-        distribution[&1] * distribution[&3]
-    }
-    fn part_2(&self) -> usize {
-        let chain: Vec<usize> =
-            adapter_chain(&parsers::input(self).expect("Failed to parse the input")).collect_vec();
-        count_arrangements(&chain)
-    }
 }
 
 #[cfg(test)]

@@ -2,6 +2,17 @@
 
 use itertools::iterate;
 
+trait Solution {
+    fn part_1(&self) -> u64;
+}
+impl Solution for str {
+    fn part_1(&self) -> u64 {
+        let (card, door) = parsers::input(self).expect("Failed to parse the input");
+        let loop_size = find_loop_size(card);
+        transformations(door).nth(loop_size).unwrap()
+    }
+}
+
 const SUBJECT_NUMBER: u64 = 7;
 const INITIAL_KEY: u64 = 1;
 const LOOP_REMINDER: u64 = 20201227;
@@ -25,17 +36,6 @@ mod parsers {
 
     pub fn input(s: &str) -> Result<(u64, u64), Error<&str>> {
         finished_parser(separated_pair(integer, line_ending, integer))(s)
-    }
-}
-
-trait Solution {
-    fn part_1(&self) -> u64;
-}
-impl Solution for str {
-    fn part_1(&self) -> u64 {
-        let (card, door) = parsers::input(self).expect("Failed to parse the input");
-        let loop_size = find_loop_size(card);
-        transformations(door).nth(loop_size).unwrap()
     }
 }
 

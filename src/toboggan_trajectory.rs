@@ -1,8 +1,26 @@
 //! Day 3
 
-use std::ops::Mul;
-
 use bitvec::prelude::*;
+
+trait Solution {
+    fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
+}
+impl Solution for str {
+    fn part_1(&self) -> usize {
+        count_trees(
+            &parsers::input(self).expect("Failed to parse the input"),
+            (3, 1),
+        )
+    }
+    fn part_2(&self) -> usize {
+        let map = &parsers::input(self).expect("Failed to parse the input");
+        [(1, 1), (3, 1), (5, 1), (7, 1), (1, 2)]
+            .iter()
+            .map(|&slope| count_trees(&map, slope))
+            .product()
+    }
+}
 
 fn trajectory<'a>(
     start: (usize, usize),
@@ -33,26 +51,6 @@ mod parsers {
 
     pub fn input(s: &str) -> Result<Vec<BitVec>, Error<&str>> {
         finished_parser(bw_image)(s)
-    }
-}
-
-trait Solution {
-    fn part_1(&self) -> usize;
-    fn part_2(&self) -> usize;
-}
-impl Solution for str {
-    fn part_1(&self) -> usize {
-        count_trees(
-            &parsers::input(self).expect("Failed to parse the input"),
-            (3, 1),
-        )
-    }
-    fn part_2(&self) -> usize {
-        let map = &parsers::input(self).expect("Failed to parse the input");
-        [(1, 1), (3, 1), (5, 1), (7, 1), (1, 2)]
-            .iter()
-            .map(|&slope| count_trees(&map, slope))
-            .fold(1, Mul::mul)
     }
 }
 

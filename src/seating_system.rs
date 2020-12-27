@@ -2,6 +2,23 @@
 
 use std::ops::{Index, IndexMut};
 
+trait Solution {
+    fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
+}
+impl Solution for str {
+    fn part_1(&self) -> usize {
+        let mut layout = parsers::input(self).expect("Failed to parse the input");
+        while !layout.simulate_shortsighted() {}
+        layout.occupied()
+    }
+    fn part_2(&self) -> usize {
+        let mut layout = parsers::input(self).expect("Failed to parse the input");
+        while !layout.simulate_farsighted() {}
+        layout.occupied()
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Layout {
     pub storage: Vec<Vec<Option<bool>>>,
@@ -232,23 +249,6 @@ mod parsers {
                 value(Some(true), char('#')),
             ))),
         )(s)
-    }
-}
-
-trait Solution {
-    fn part_1(&self) -> usize;
-    fn part_2(&self) -> usize;
-}
-impl Solution for str {
-    fn part_1(&self) -> usize {
-        let mut layout = parsers::input(self).expect("Failed to parse the input");
-        while !layout.simulate_shortsighted() {}
-        layout.occupied()
-    }
-    fn part_2(&self) -> usize {
-        let mut layout = parsers::input(self).expect("Failed to parse the input");
-        while !layout.simulate_farsighted() {}
-        layout.occupied()
     }
 }
 

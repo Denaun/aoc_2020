@@ -2,6 +2,24 @@
 
 use std::ops::{Rem, Sub};
 
+trait Solution {
+    fn part_1(&self) -> u32;
+    fn part_2(&self) -> i64;
+}
+impl Solution for str {
+    fn part_1(&self) -> u32 {
+        let (threshold, candidates) = parsers::input(self).expect("Failed to parse the input");
+        let id = least_multiple_above(candidates.iter().flatten(), threshold).expect("No ID found");
+        let remaining = wait_time(threshold, *id);
+        id * remaining
+    }
+    fn part_2(&self) -> i64 {
+        let (offsets, ids) =
+            sparse_offsets(parsers::input(self).expect("Failed to parse the input").1);
+        chinese_remainder_inv(&offsets, &ids).expect("IDs not pairwise coprime")
+    }
+}
+
 fn wait_time<T>(from: T, period: T) -> T
 where
     T: Sub<Output = T> + Rem<Output = T> + Copy,
@@ -82,24 +100,6 @@ mod parsers {
             line_ending,
             separated_list1(char(','), alt((map(integer, Some), value(None, char('x'))))),
         ))(s)
-    }
-}
-
-trait Solution {
-    fn part_1(&self) -> u32;
-    fn part_2(&self) -> i64;
-}
-impl Solution for str {
-    fn part_1(&self) -> u32 {
-        let (threshold, candidates) = parsers::input(self).expect("Failed to parse the input");
-        let id = least_multiple_above(candidates.iter().flatten(), threshold).expect("No ID found");
-        let remaining = wait_time(threshold, *id);
-        id * remaining
-    }
-    fn part_2(&self) -> i64 {
-        let (offsets, ids) =
-            sparse_offsets(parsers::input(self).expect("Failed to parse the input").1);
-        chinese_remainder_inv(&offsets, &ids).expect("IDs not pairwise coprime")
     }
 }
 

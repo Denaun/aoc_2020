@@ -5,6 +5,26 @@ use std::{
     hash::Hash,
 };
 
+trait Solution {
+    fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
+}
+impl Solution for str {
+    fn part_1(&self) -> usize {
+        bfs(
+            "shiny gold",
+            &build_containee_map(&parsers::input(self).expect("Failed to parse the input")),
+        )
+        .len()
+    }
+    fn part_2(&self) -> usize {
+        count_nesting(
+            "shiny gold",
+            &build_container_map(&parsers::input(self).expect("Failed to parse the input")),
+        )
+    }
+}
+
 fn build_containee_map<K1, K2, V>(data: &[(K1, impl AsRef<[(K2, V)]>)]) -> HashMap<K2, Vec<K1>>
 where
     K1: Eq + Hash + Clone,
@@ -116,26 +136,6 @@ mod parsers {
             }),
             pair(tag(" bag"), opt(char('s'))),
         )(s)
-    }
-}
-
-trait Solution {
-    fn part_1(&self) -> usize;
-    fn part_2(&self) -> usize;
-}
-impl Solution for str {
-    fn part_1(&self) -> usize {
-        bfs(
-            "shiny gold",
-            &build_containee_map(&parsers::input(self).expect("Failed to parse the input")),
-        )
-        .len()
-    }
-    fn part_2(&self) -> usize {
-        count_nesting(
-            "shiny gold",
-            &build_container_map(&parsers::input(self).expect("Failed to parse the input")),
-        )
     }
 }
 

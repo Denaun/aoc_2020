@@ -2,6 +2,36 @@
 
 use std::collections::{HashMap, HashSet};
 
+trait Solution {
+    fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
+}
+impl Solution for str {
+    fn part_1(&self) -> usize {
+        find_black_tiles(
+            parsers::input(self)
+                .expect("Failed to parse the input")
+                .into_iter()
+                .map(fold_axial_coordinates),
+        )
+        .len()
+    }
+    fn part_2(&self) -> usize {
+        let mut floor = ArtExhibit {
+            black_tiles: find_black_tiles(
+                parsers::input(self)
+                    .expect("Failed to parse the input")
+                    .into_iter()
+                    .map(fold_axial_coordinates),
+            ),
+        };
+        for _ in 0..100 {
+            floor.next_day();
+        }
+        floor.black_tiles.len()
+    }
+}
+
 type Coord = (i32, i32);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -122,36 +152,6 @@ mod parsers {
             value(Direction::NorthWest, tag("nw")),
             value(Direction::NorthEast, tag("ne")),
         ))(s)
-    }
-}
-
-trait Solution {
-    fn part_1(&self) -> usize;
-    fn part_2(&self) -> usize;
-}
-impl Solution for str {
-    fn part_1(&self) -> usize {
-        find_black_tiles(
-            parsers::input(self)
-                .expect("Failed to parse the input")
-                .into_iter()
-                .map(fold_axial_coordinates),
-        )
-        .len()
-    }
-    fn part_2(&self) -> usize {
-        let mut floor = ArtExhibit {
-            black_tiles: find_black_tiles(
-                parsers::input(self)
-                    .expect("Failed to parse the input")
-                    .into_iter()
-                    .map(fold_axial_coordinates),
-            ),
-        };
-        for _ in 0..100 {
-            floor.next_day();
-        }
-        floor.black_tiles.len()
     }
 }
 

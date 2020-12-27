@@ -1,5 +1,26 @@
 //! Day 2
 
+trait Solution {
+    fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
+}
+impl Solution for str {
+    fn part_1(&self) -> usize {
+        filter_valid(
+            &parsers::input(self).expect("Failed to parse the input"),
+            part_1_rule,
+        )
+        .count()
+    }
+    fn part_2(&self) -> usize {
+        filter_valid(
+            &parsers::input(self).expect("Failed to parse the input"),
+            part_2_rule,
+        )
+        .count()
+    }
+}
+
 fn filter_valid<'a>(
     data: &'a [(Policy, &str)],
     is_valid: impl Fn(&Policy, &str) -> bool,
@@ -67,27 +88,6 @@ mod parsers {
                 letter,
             },
         ))
-    }
-}
-
-trait Solution {
-    fn part_1(&self) -> usize;
-    fn part_2(&self) -> usize;
-}
-impl Solution for str {
-    fn part_1(&self) -> usize {
-        filter_valid(
-            &parsers::input(self).expect("Failed to parse the input"),
-            part_1_rule,
-        )
-        .count()
-    }
-    fn part_2(&self) -> usize {
-        filter_valid(
-            &parsers::input(self).expect("Failed to parse the input"),
-            part_2_rule,
-        )
-        .count()
     }
 }
 

@@ -7,6 +7,30 @@ use num_traits::{CheckedSub, NumAssignOps, Unsigned, Zero};
 
 use crate::report_repair::find_sum;
 
+trait Solution {
+    fn part_1(&self) -> u64;
+    fn part_2(&self) -> u64;
+}
+impl Solution for str {
+    fn part_1(&self) -> u64 {
+        let input = parsers::input(self).expect("Failed to parse the input");
+        find_first_non_valid(input[..25].iter().copied().collect(), &input[25..])
+            .expect("Violation not found")
+    }
+    fn part_2(&self) -> u64 {
+        let input: Vec<u64> = parsers::input(self).expect("Failed to parse the input");
+        let sum = find_first_non_valid(input[..25].iter().copied().collect(), &input[25..])
+            .expect("Violation not found");
+        find_contiguous_sum(&input, sum)
+            .expect("Weakness not found")
+            .into_iter()
+            .minmax()
+            .into_option()
+            .map(|(min, max)| min + max)
+            .unwrap_or_default()
+    }
+}
+
 fn is_valid<T: Zero + CheckedSub + Copy>(value: T, values: &impl AsRef<[T]>) -> bool {
     find_sum(values.as_ref(), value, 2).is_some()
 }
@@ -72,30 +96,6 @@ impl<T> AsRef<[T]> for CircularBuffer<T> {
 
 mod parsers {
     pub use crate::parsers::number_list as input;
-}
-
-trait Solution {
-    fn part_1(&self) -> u64;
-    fn part_2(&self) -> u64;
-}
-impl Solution for str {
-    fn part_1(&self) -> u64 {
-        let input = parsers::input(self).expect("Failed to parse the input");
-        find_first_non_valid(input[..25].iter().copied().collect(), &input[25..])
-            .expect("Violation not found")
-    }
-    fn part_2(&self) -> u64 {
-        let input: Vec<u64> = parsers::input(self).expect("Failed to parse the input");
-        let sum = find_first_non_valid(input[..25].iter().copied().collect(), &input[25..])
-            .expect("Violation not found");
-        find_contiguous_sum(&input, sum)
-            .expect("Weakness not found")
-            .into_iter()
-            .minmax()
-            .into_option()
-            .map(|(min, max)| min + max)
-            .unwrap_or_default()
-    }
 }
 
 #[cfg(test)]

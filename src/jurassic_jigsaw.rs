@@ -5,6 +5,33 @@ use std::collections::HashSet;
 use bitvec::prelude::*;
 use itertools::{iterate, Itertools};
 
+trait Solution {
+    fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
+}
+impl Solution for str {
+    fn part_1(&self) -> usize {
+        let tiles = parsers::input(self).expect("Failed to parse the input");
+        corners(&tiles).map(|tile| tile.id).product()
+    }
+    fn part_2(&self) -> usize {
+        let tiles = parsers::input(self).expect("Failed to parse the input");
+        let mut image = Tile::from_image(
+            0,
+            build_image(&tiles).expect("Failed to build the full image"),
+        )
+        .orient_with(|tile| tile.matches_mask(&SEA_MONSTER))
+        .expect("Failed to find any sea monster");
+        image.mask_all(&SEA_MONSTER);
+        image
+            .data
+            .into_iter()
+            .flat_map(|row| row.into_iter())
+            .filter(|&b| b)
+            .count()
+    }
+}
+
 type Coordinate = (usize, usize);
 
 const SEA_MONSTER: [Coordinate; 15] = [
@@ -259,36 +286,6 @@ mod parsers {
                 |(id, data)| Tile::new(id, data),
             ),
         ))(s)
-    }
-}
-
-trait Solution {
-    fn part_1(&self) -> usize;
-    fn part_2(&self) -> usize;
-}
-impl Solution for str {
-    fn part_1(&self) -> usize {
-        let tiles = parsers::input(self).expect("Failed to parse the input");
-        corners(&tiles).map(|tile| tile.id).product()
-    }
-    fn part_2(&self) -> usize {
-        let tiles = parsers::input(self).expect("Failed to parse the input");
-        let image = Tile::from_image(
-            0,
-            build_image(&tiles).expect("Failed to build the full image"),
-        );
-        image
-            .orient_with(|tile| tile.matches_mask(&SEA_MONSTER))
-            .map(|mut tile| {
-                tile.mask_all(&SEA_MONSTER);
-                tile
-            })
-            .expect("Failed to find any sea monster")
-            .data
-            .into_iter()
-            .flat_map(|row| row.into_iter())
-            .filter(|&b| b)
-            .count()
     }
 }
 

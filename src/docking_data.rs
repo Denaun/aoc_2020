@@ -1,8 +1,24 @@
 //! Day 14
 
+use std::collections::HashMap;
+
 use bitvec::prelude::*;
 use itertools::Either;
-use std::collections::HashMap;
+
+trait Solution {
+    fn part_1(&self) -> u64;
+    fn part_2(&self) -> u64;
+}
+impl Solution for str {
+    fn part_1(&self) -> u64 {
+        let mem = execute_v1(&parsers::input(self).expect("Failed to parse the input"));
+        mem.into_iter().map(|(_, v)| v).sum()
+    }
+    fn part_2(&self) -> u64 {
+        let mem = execute_v2(&parsers::input(self).expect("Failed to parse the input"));
+        mem.into_iter().map(|(_, v)| v).sum()
+    }
+}
 
 const N_BITS: usize = 36;
 
@@ -120,21 +136,6 @@ mod parsers {
         let (s, _) = tag("] = ")(s)?;
         let (s, value) = integer(s)?;
         Ok((s, (address, value)))
-    }
-}
-
-trait Solution {
-    fn part_1(&self) -> u64;
-    fn part_2(&self) -> u64;
-}
-impl Solution for str {
-    fn part_1(&self) -> u64 {
-        let mem = execute_v1(&parsers::input(self).expect("Failed to parse the input"));
-        mem.into_iter().map(|(_, v)| v).sum()
-    }
-    fn part_2(&self) -> u64 {
-        let mem = execute_v2(&parsers::input(self).expect("Failed to parse the input"));
-        mem.into_iter().map(|(_, v)| v).sum()
     }
 }
 

@@ -1,5 +1,32 @@
 //! Day 12
 
+trait Solution {
+    fn part_1(&self) -> u32;
+    fn part_2(&self) -> u32;
+}
+impl Solution for str {
+    fn part_1(&self) -> u32 {
+        parsers::input(self)
+            .expect("Failed to parse the input")
+            .into_iter()
+            .fold(HeadedShip::new(), |ship, (direction, amount)| {
+                ship.do_move(direction, amount)
+            })
+            .position
+            .get_manhattan_distance()
+    }
+    fn part_2(&self) -> u32 {
+        parsers::input(self)
+            .expect("Failed to parse the input")
+            .into_iter()
+            .fold(WaypontedShip::new(), |ship, (direction, amount)| {
+                ship.do_move(direction, amount)
+            })
+            .position
+            .get_manhattan_distance()
+    }
+}
+
 struct HeadedShip {
     heading: Cardinal,
     position: Position,
@@ -231,33 +258,6 @@ mod parsers {
                 integer,
             )),
         ))(s)
-    }
-}
-
-trait Solution {
-    fn part_1(&self) -> u32;
-    fn part_2(&self) -> u32;
-}
-impl Solution for str {
-    fn part_1(&self) -> u32 {
-        parsers::input(self)
-            .expect("Failed to parse the input")
-            .into_iter()
-            .fold(HeadedShip::new(), |ship, (direction, amount)| {
-                ship.do_move(direction, amount)
-            })
-            .position
-            .get_manhattan_distance()
-    }
-    fn part_2(&self) -> u32 {
-        parsers::input(self)
-            .expect("Failed to parse the input")
-            .into_iter()
-            .fold(WaypontedShip::new(), |ship, (direction, amount)| {
-                ship.do_move(direction, amount)
-            })
-            .position
-            .get_manhattan_distance()
     }
 }
 

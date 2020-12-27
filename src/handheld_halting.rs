@@ -1,5 +1,29 @@
 //! Day 8
 
+trait Solution {
+    fn part_1(&self) -> i32;
+    fn part_2(&self) -> i32;
+}
+impl Solution for str {
+    fn part_1(&self) -> i32 {
+        let mut runner = Runner::new(parsers::input(self).expect("Failed to parse the input"));
+        find_loop(&mut runner);
+        if runner.is_finished() {
+            panic!("No loop found");
+        }
+        runner.acc
+    }
+    fn part_2(&self) -> i32 {
+        if let Some(runner) = fix_loop(Runner::new(
+            parsers::input(self).expect("Failed to parse the input"),
+        )) {
+            runner.acc
+        } else {
+            panic!("Couldn't fix");
+        }
+    }
+}
+
 pub type Instruction = (Op, i32);
 pub type BootCode = Vec<Instruction>;
 
@@ -103,30 +127,6 @@ mod parsers {
             char(' '),
             signed_integer,
         )(s)
-    }
-}
-
-trait Solution {
-    fn part_1(&self) -> i32;
-    fn part_2(&self) -> i32;
-}
-impl Solution for str {
-    fn part_1(&self) -> i32 {
-        let mut runner = Runner::new(parsers::input(self).expect("Failed to parse the input"));
-        find_loop(&mut runner);
-        if runner.is_finished() {
-            panic!("No loop found");
-        }
-        runner.acc
-    }
-    fn part_2(&self) -> i32 {
-        if let Some(runner) = fix_loop(Runner::new(
-            parsers::input(self).expect("Failed to parse the input"),
-        )) {
-            runner.acc
-        } else {
-            panic!("Couldn't fix");
-        }
     }
 }
 

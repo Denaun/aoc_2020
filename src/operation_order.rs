@@ -2,6 +2,27 @@
 
 use std::ops::{Add, Mul};
 
+trait Solution {
+    fn part_1(&self) -> u64;
+    fn part_2(&self) -> u64;
+}
+impl Solution for str {
+    fn part_1(&self) -> u64 {
+        parsers::part_1::<u64>(self)
+            .expect("Failed to parse the input")
+            .into_iter()
+            .map(|expr| expr.evaluate())
+            .sum()
+    }
+    fn part_2(&self) -> u64 {
+        parsers::part_2::<u64>(self)
+            .expect("Failed to parse the input")
+            .into_iter()
+            .map(|expr| expr.evaluate())
+            .sum()
+    }
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Op {
     Plus,
@@ -88,27 +109,6 @@ mod parsers {
             expr = Expression::Op(Box::new(expr), Op::Plus, Box::new(lhs));
         }
         Ok((s, expr))
-    }
-}
-
-trait Solution {
-    fn part_1(&self) -> u64;
-    fn part_2(&self) -> u64;
-}
-impl Solution for str {
-    fn part_1(&self) -> u64 {
-        parsers::part_1::<u64>(self)
-            .expect("Failed to parse the input")
-            .into_iter()
-            .map(|expr| expr.evaluate())
-            .sum()
-    }
-    fn part_2(&self) -> u64 {
-        parsers::part_2::<u64>(self)
-            .expect("Failed to parse the input")
-            .into_iter()
-            .map(|expr| expr.evaluate())
-            .sum()
     }
 }
 

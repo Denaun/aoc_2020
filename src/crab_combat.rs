@@ -2,6 +2,25 @@
 
 use std::collections::{HashSet, VecDeque};
 
+trait Solution {
+    fn part_1(&self) -> u64;
+    fn part_2(&self) -> u64;
+}
+impl Solution for str {
+    fn part_1(&self) -> u64 {
+        let (player_1, player_2) = parsers::input(self).expect("Failed to parse the input");
+        let mut game = Combat::new(player_1, player_2);
+        game.play_out();
+        game.winner_score()
+    }
+    fn part_2(&self) -> u64 {
+        let (player_1, player_2) = parsers::input(self).expect("Failed to parse the input");
+        let mut game = RecursiveCombat::new(player_1, player_2);
+        game.play_out();
+        game.winner_score()
+    }
+}
+
 type Card = u64;
 struct Combat {
     player_1: Deck,
@@ -156,25 +175,6 @@ mod parsers {
             let (s, _) = terminated(tag(":"), line_ending)(s)?;
             separated_list1(line_ending, integer)(s)
         }
-    }
-}
-
-trait Solution {
-    fn part_1(&self) -> u64;
-    fn part_2(&self) -> u64;
-}
-impl Solution for str {
-    fn part_1(&self) -> u64 {
-        let (player_1, player_2) = parsers::input(self).expect("Failed to parse the input");
-        let mut game = Combat::new(player_1, player_2);
-        game.play_out();
-        game.winner_score()
-    }
-    fn part_2(&self) -> u64 {
-        let (player_1, player_2) = parsers::input(self).expect("Failed to parse the input");
-        let mut game = RecursiveCombat::new(player_1, player_2);
-        game.play_out();
-        game.winner_score()
     }
 }
 

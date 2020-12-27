@@ -4,6 +4,28 @@ use std::collections::{HashMap, HashSet};
 
 use nom::combinator::all_consuming;
 
+trait Solution {
+    fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
+}
+impl Solution for str {
+    fn part_1(&self) -> usize {
+        parsers::input(self)
+            .expect("Failed to parse the input")
+            .into_iter()
+            .filter(|passport| is_roughly_valid(passport))
+            .count()
+    }
+    fn part_2(&self) -> usize {
+        parsers::input(self)
+            .expect("Failed to parse the input")
+            .into_iter()
+            .map(|passport| passport.into_iter().collect())
+            .filter(|passport| is_valid(passport))
+            .count()
+    }
+}
+
 fn is_roughly_valid(passport: &[(&str, &str)]) -> bool {
     let fields: HashSet<_> = passport.iter().map(|(f, _)| f).collect();
     ["byr", "iyr", "eyr", "hgt", "hcl", "ecl", "pid"]
@@ -103,28 +125,6 @@ mod parsers {
             value(Height::Cm(h), tag("cm")),
             value(Height::In(h), tag("in")),
         ))(s)
-    }
-}
-
-trait Solution {
-    fn part_1(&self) -> usize;
-    fn part_2(&self) -> usize;
-}
-impl Solution for str {
-    fn part_1(&self) -> usize {
-        parsers::input(self)
-            .expect("Failed to parse the input")
-            .iter()
-            .filter(|passport| is_roughly_valid(passport))
-            .count()
-    }
-    fn part_2(&self) -> usize {
-        parsers::input(self)
-            .expect("Failed to parse the input")
-            .into_iter()
-            .map(|passport| passport.into_iter().collect())
-            .filter(|passport| is_valid(passport))
-            .count()
     }
 }
 

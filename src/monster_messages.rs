@@ -10,6 +10,32 @@ use nom::{
     Err, IResult,
 };
 
+trait Solution {
+    fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
+}
+impl Solution for str {
+    fn part_1(&self) -> usize {
+        let (rules, messages) = parsers::input(self).expect("Failed to parse the input");
+        let mut rule_zero =
+            all_consuming(resolve(&rules, &RuleId(0)).expect("Failed to resolve rule 0"));
+        messages
+            .into_iter()
+            .filter(|message| rule_zero(message).is_ok())
+            .count()
+    }
+    fn part_2(&self) -> usize {
+        let (rules, messages) = parsers::input(self).expect("Failed to parse the input");
+        let rules = apply_part_2(rules);
+        let mut rule_zero =
+            all_consuming(resolve(&rules, &RuleId(0)).expect("Failed to resolve rule 0"));
+        messages
+            .into_iter()
+            .filter(|message| rule_zero(message).is_ok())
+            .count()
+    }
+}
+
 type Parser = Box<dyn FnMut(&str) -> IResult<&str, ()>>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -154,32 +180,6 @@ mod parsers {
     }
     fn id(s: &str) -> IResult<&str, RuleId> {
         map(integer, |i| RuleId(i))(s)
-    }
-}
-
-trait Solution {
-    fn part_1(&self) -> usize;
-    fn part_2(&self) -> usize;
-}
-impl Solution for str {
-    fn part_1(&self) -> usize {
-        let (rules, messages) = parsers::input(self).expect("Failed to parse the input");
-        let mut rule_zero =
-            all_consuming(resolve(&rules, &RuleId(0)).expect("Failed to resolve rule 0"));
-        messages
-            .iter()
-            .filter(|message| rule_zero(message).is_ok())
-            .count()
-    }
-    fn part_2(&self) -> usize {
-        let (rules, messages) = parsers::input(self).expect("Failed to parse the input");
-        let rules = apply_part_2(rules);
-        let mut rule_zero =
-            all_consuming(resolve(&rules, &RuleId(0)).expect("Failed to resolve rule 0"));
-        messages
-            .iter()
-            .filter(|message| rule_zero(message).is_ok())
-            .count()
     }
 }
 

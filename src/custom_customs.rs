@@ -4,6 +4,33 @@ use std::collections::HashSet;
 
 use itertools::Itertools;
 
+trait Solution {
+    fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
+}
+impl Solution for str {
+    fn part_1(&self) -> usize {
+        parsers::input(self)
+            .expect("Failed to parse the input")
+            .into_iter()
+            .map(|group| unique_answers(&group).count())
+            .sum()
+    }
+    fn part_2(&self) -> usize {
+        parsers::input(self)
+            .expect("Failed to parse the input")
+            .into_iter()
+            .map(|group| {
+                if let Some(answers) = common_answers(&group) {
+                    answers.len()
+                } else {
+                    0
+                }
+            })
+            .sum()
+    }
+}
+
 fn unique_answers<'a>(group: &'a [&str]) -> impl Iterator<Item = char> + 'a {
     group.iter().flat_map(|answers| answers.chars()).unique()
 }
@@ -32,33 +59,6 @@ mod parsers {
     }
     pub fn group(s: &str) -> IResult<&str, Vec<&str>> {
         separated_list1(line_ending, alpha1)(s)
-    }
-}
-
-trait Solution {
-    fn part_1(&self) -> usize;
-    fn part_2(&self) -> usize;
-}
-impl Solution for str {
-    fn part_1(&self) -> usize {
-        parsers::input(self)
-            .expect("Failed to parse the input")
-            .iter()
-            .map(|group| unique_answers(group).count())
-            .sum()
-    }
-    fn part_2(&self) -> usize {
-        parsers::input(self)
-            .expect("Failed to parse the input")
-            .iter()
-            .map(|group| {
-                if let Some(answers) = common_answers(group) {
-                    answers.len()
-                } else {
-                    0
-                }
-            })
-            .sum()
     }
 }
 

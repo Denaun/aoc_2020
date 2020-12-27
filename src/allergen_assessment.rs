@@ -1,7 +1,25 @@
 //! Day 21
 
-use itertools::Itertools;
 use std::collections::{BTreeMap, HashMap, HashSet};
+
+use itertools::Itertools;
+
+trait Solution {
+    fn part_1(&self) -> usize;
+    fn part_2(&self) -> String;
+}
+impl Solution for &str {
+    fn part_1(&self) -> usize {
+        find_non_allergens(&parsers::input(self).expect("Failed to parse the input")).len()
+    }
+    fn part_2(&self) -> String {
+        find_allergens(&parsers::input(self).expect("Failed to parse the input"))
+            .expect("Allergens not found")
+            .into_iter()
+            .map(|(_, ingredient)| ingredient)
+            .join(",")
+    }
+}
 
 fn get_allergen_candidates<'a, 'b>(
     notes: &[(Vec<&'a str>, Vec<&'b str>)],
@@ -75,23 +93,6 @@ mod parsers {
                 ),
             ),
         ))(s)
-    }
-}
-
-trait Solution {
-    fn part_1(&self) -> usize;
-    fn part_2(&self) -> String;
-}
-impl Solution for &str {
-    fn part_1(&self) -> usize {
-        find_non_allergens(&parsers::input(self).expect("Failed to parse the input")).len()
-    }
-    fn part_2(&self) -> String {
-        find_allergens(&parsers::input(self).expect("Failed to parse the input"))
-            .expect("Allergens not found")
-            .iter()
-            .map(|(_, ingredient)| ingredient)
-            .join(",")
     }
 }
 
