@@ -212,13 +212,11 @@ fn build_image(tiles: &[Tile]) -> Option<Vec<Vec<Tile>>> {
         })
         .unwrap();
 
-    let mut image = build_line(tiles, top_left, Orientation::Bottom)
-        .map(|tile| vec![tile])
-        .collect_vec();
-    for row in &mut image {
-        *row = build_line(tiles, row.pop().unwrap(), Orientation::Right).collect_vec();
-    }
-    Some(image)
+    Some(
+        build_line(tiles, top_left, Orientation::Bottom)
+            .map(|tile| build_line(tiles, tile, Orientation::Right).collect_vec())
+            .collect_vec(),
+    )
 }
 fn build_line<'a>(
     tiles: &'a [Tile],
