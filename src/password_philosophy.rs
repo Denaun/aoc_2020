@@ -1,13 +1,25 @@
 //! Day 2
 
-use nom::{
-    bytes::complete::tag,
-    character::complete::{alpha1, anychar, char, digit1},
-    combinator::map_res,
-    multi::separated_list0,
-    sequence::separated_pair,
-    IResult,
-};
+trait Solution {
+    fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
+}
+impl Solution for str {
+    fn part_1(&self) -> usize {
+        filter_valid(
+            &parsers::input(self).expect("Failed to parse the input"),
+            part_1_rule,
+        )
+        .count()
+    }
+    fn part_2(&self) -> usize {
+        filter_valid(
+            &parsers::input(self).expect("Failed to parse the input"),
+            part_2_rule,
+        )
+        .count()
+    }
+}
 
 fn filter_valid<'a>(
     data: &'a [(Policy, &str)],
@@ -36,49 +48,46 @@ fn part_2_rule(policy: &Policy, password: &str) -> bool {
 }
 
 #[derive(Debug, PartialEq)]
-struct Policy {
+pub struct Policy {
     range: [usize; 2],
     letter: char,
 }
 
-fn policy(input: &str) -> IResult<&str, Policy> {
-    let (input, first) = map_res(digit1, |s: &str| s.parse())(input)?;
-    let (input, _) = char('-')(input)?;
-    let (input, second) = map_res(digit1, |s: &str| s.parse())(input)?;
-    let (input, _) = char(' ')(input)?;
-    let (input, letter) = anychar(input)?;
+mod parsers {
+    use nom::{
+        bytes::complete::tag,
+        character::complete::{alpha1, anychar, char, line_ending},
+        error::Error,
+        multi::separated_list0,
+        sequence::separated_pair,
+        IResult,
+    };
 
-    Ok((
-        input,
-        Policy {
-            range: [first, second],
-            letter,
-        },
-    ))
-}
+    use crate::parsers::{finished_parser, integer};
 
-fn parse_input(input: &str) -> IResult<&str, Vec<(Policy, &str)>> {
-    separated_list0(char('\n'), separated_pair(policy, tag(": "), alpha1))(input)
-}
+    use super::Policy;
 
-trait Solution {
-    fn part_1(&self) -> usize;
-    fn part_2(&self) -> usize;
-}
-impl Solution for str {
-    fn part_1(&self) -> usize {
-        filter_valid(
-            &parse_input(self).expect("Failed to parse the input").1,
-            part_1_rule,
-        )
-        .count()
+    pub fn input(s: &str) -> Result<Vec<(Policy, &str)>, Error<&str>> {
+        finished_parser(separated_list0(
+            line_ending,
+            separated_pair(policy, tag(": "), alpha1),
+        ))(s)
     }
-    fn part_2(&self) -> usize {
-        filter_valid(
-            &parse_input(self).expect("Failed to parse the input").1,
-            part_2_rule,
-        )
-        .count()
+
+    pub fn policy(s: &str) -> IResult<&str, Policy> {
+        let (s, first) = integer(s)?;
+        let (s, _) = char('-')(s)?;
+        let (s, second) = integer(s)?;
+        let (s, _) = char(' ')(s)?;
+        let (s, letter) = anychar(s)?;
+
+        Ok((
+            s,
+            Policy {
+                range: [first, second],
+                letter,
+            },
+        ))
     }
 }
 
@@ -89,7 +98,7 @@ mod tests {
     #[test]
     fn example_policy() {
         assert_eq!(
-            policy("1-3 a"),
+            parsers::policy("1-3 a"),
             Ok((
                 "",
                 Policy {
@@ -103,38 +112,35 @@ mod tests {
     #[test]
     fn example_input() {
         assert_eq!(
-            parse_input(
+            parsers::input(
                 "\
 1-3 a: abcde
 1-3 b: cdefg
 2-9 c: ccccccccc"
             ),
-            Ok((
-                "",
-                vec![
-                    (
-                        Policy {
-                            range: [1, 3],
-                            letter: 'a',
-                        },
-                        "abcde"
-                    ),
-                    (
-                        Policy {
-                            range: [1, 3],
-                            letter: 'b',
-                        },
-                        "cdefg"
-                    ),
-                    (
-                        Policy {
-                            range: [2, 9],
-                            letter: 'c',
-                        },
-                        "ccccccccc"
-                    ),
-                ]
-            ))
+            Ok(vec![
+                (
+                    Policy {
+                        range: [1, 3],
+                        letter: 'a',
+                    },
+                    "abcde"
+                ),
+                (
+                    Policy {
+                        range: [1, 3],
+                        letter: 'b',
+                    },
+                    "cdefg"
+                ),
+                (
+                    Policy {
+                        range: [2, 9],
+                        letter: 'c',
+                    },
+                    "ccccccccc"
+                ),
+            ])
         )
     }
 
@@ -160,14 +166,13 @@ mod tests {
     fn example_1() {
         assert_eq!(
             filter_valid(
-                &parse_input(
+                &parsers::input(
                     "\
 1-3 a: abcde
 1-3 b: cdefg
 2-9 c: ccccccccc"
                 )
-                .unwrap()
-                .1,
+                .unwrap(),
                 part_1_rule
             )
             .collect::<Vec<_>>(),
@@ -202,15 +207,14 @@ mod tests {
     fn example_2() {
         assert_eq!(
             filter_valid(
-                &parse_input(
+                &parsers::input(
                     "\
-    1-3 a: abcde
-    1-3 b: cdefg
-    2-9 c: ccccccccc"
+1-3 a: abcde
+1-3 b: cdefg
+2-9 c: ccccccccc"
                 )
-                .unwrap()
-                .1,
-                part_1_rule
+                .unwrap(),
+                part_2_rule
             )
             .collect::<Vec<_>>(),
             vec!["abcde"]

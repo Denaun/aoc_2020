@@ -5,6 +5,28 @@ use std::{collections::HashMap, hash::Hash};
 use itertools::{iterate, Itertools};
 use num_traits::{FromPrimitive, Num, NumAssignOps};
 
+trait Solution {
+    fn part_1(&self) -> String;
+    fn part_2(&self) -> u32;
+}
+impl Solution for &str {
+    fn part_1(&self) -> String {
+        let mut game = Game::new(parsers::part_1(self)).unwrap();
+        for _ in 0..100 {
+            game.do_move();
+        }
+        let ret = game.unroll(&1).join("");
+        ret
+    }
+    fn part_2(&self) -> u32 {
+        let mut game = Game::new(parsers::part_2(self)).unwrap();
+        for _ in 0..10_000_000 {
+            game.do_move();
+        }
+        game.unroll(&1).take(2).product()
+    }
+}
+
 const SLICE_SIZE: usize = 3;
 struct Game<T> {
     current: T,
@@ -66,34 +88,14 @@ where
     }
 }
 
-fn parse_part_1<'a>(s: &'a str) -> impl Iterator<Item = u8> + 'a {
-    s.bytes().map(|b| b - b'0')
-}
-fn parse_part_2<'a>(s: &'a str) -> impl Iterator<Item = u32> + 'a {
-    s.bytes()
-        .map(|b| (b - b'0') as u32)
-        .chain((s.len() as u32 + 1)..=1_000_000)
-}
-
-trait Solution {
-    fn part_1(&self) -> String;
-    fn part_2(&self) -> u32;
-}
-impl Solution for &str {
-    fn part_1(&self) -> String {
-        let mut game = Game::new(parse_part_1(self)).unwrap();
-        for _ in 0..100 {
-            game.do_move();
-        }
-        let ret = game.unroll(&1).join("");
-        ret
+mod parsers {
+    pub fn part_1<'a>(s: &'a str) -> impl Iterator<Item = u8> + 'a {
+        s.bytes().map(|b| b - b'0')
     }
-    fn part_2(&self) -> u32 {
-        let mut game = Game::new(parse_part_2(self)).unwrap();
-        for _ in 0..10_000_000 {
-            game.do_move();
-        }
-        game.unroll(&1).take(2).product()
+    pub fn part_2<'a>(s: &'a str) -> impl Iterator<Item = u32> + 'a {
+        s.bytes()
+            .map(|b| (b - b'0') as u32)
+            .chain((s.len() as u32 + 1)..=1_000_000)
     }
 }
 
@@ -105,7 +107,7 @@ mod tests {
 
     #[test]
     fn example_1() {
-        let mut game = Game::new(parse_part_1(&"389125467")).unwrap();
+        let mut game = Game::new(parsers::part_1(&"389125467")).unwrap();
         assert_eq!(game.current, 3);
         game.do_move();
         assert_eq!(game.unroll(&3).join(""), "28915467");
@@ -130,7 +132,7 @@ mod tests {
 
     #[test]
     fn example_2() {
-        let mut game = Game::new(parse_part_2(&"389125467")).unwrap();
+        let mut game = Game::new(parsers::part_2(&"389125467")).unwrap();
         for _ in 0..10_000_000 {
             game.do_move()
         }

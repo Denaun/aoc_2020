@@ -1,34 +1,8 @@
 //! Day 6
 
-use itertools::Itertools;
-use nom::{
-    character::complete::{alpha1, line_ending},
-    multi::{separated_list0, separated_list1},
-    sequence::pair,
-    IResult,
-};
 use std::collections::HashSet;
 
-fn unique_answers<'a>(group: &'a [&str]) -> impl Iterator<Item = char> + 'a {
-    group.iter().flat_map(|answers| answers.chars()).unique()
-}
-fn common_answers(group: &[&str]) -> Option<HashSet<char>> {
-    let mut group = group
-        .iter()
-        .map(|answers| answers.chars().collect::<HashSet<_>>());
-    let first = group.next()?;
-    Some(group.fold(first, |mut common, answers| {
-        common.retain(|a| answers.contains(a));
-        common
-    }))
-}
-
-fn parse_group(s: &str) -> IResult<&str, Vec<&str>> {
-    separated_list1(line_ending, alpha1)(s)
-}
-fn parse_input(s: &str) -> IResult<&str, Vec<Vec<&str>>> {
-    separated_list0(pair(line_ending, line_ending), parse_group)(s)
-}
+use itertools::Itertools;
 
 trait Solution {
     fn part_1(&self) -> usize;
@@ -36,20 +10,18 @@ trait Solution {
 }
 impl Solution for str {
     fn part_1(&self) -> usize {
-        parse_input(self)
+        parsers::input(self)
             .expect("Failed to parse the input")
-            .1
-            .iter()
-            .map(|group| unique_answers(group).count())
+            .into_iter()
+            .map(|group| unique_answers(&group).count())
             .sum()
     }
     fn part_2(&self) -> usize {
-        parse_input(self)
+        parsers::input(self)
             .expect("Failed to parse the input")
-            .1
-            .iter()
+            .into_iter()
             .map(|group| {
-                if let Some(answers) = common_answers(group) {
+                if let Some(answers) = common_answers(&group) {
                     answers.len()
                 } else {
                     0
@@ -59,14 +31,47 @@ impl Solution for str {
     }
 }
 
+fn unique_answers<'a>(group: &'a [&str]) -> impl Iterator<Item = char> + 'a {
+    group.iter().flat_map(|answers| answers.chars()).unique()
+}
+fn common_answers(group: &[&str]) -> Option<HashSet<char>> {
+    group
+        .iter()
+        .map(|answers| answers.chars().collect::<HashSet<_>>())
+        .fold1(|mut common, answers| {
+            common.retain(|a| answers.contains(a));
+            common
+        })
+}
+
+mod parsers {
+    use nom::{
+        character::complete::{alpha1, line_ending},
+        error::Error,
+        multi::separated_list1,
+        IResult,
+    };
+
+    use crate::parsers::{double_line_ending, finished_parser};
+
+    pub fn input(s: &str) -> Result<Vec<Vec<&str>>, Error<&str>> {
+        finished_parser(separated_list1(double_line_ending, group))(s)
+    }
+    pub fn group(s: &str) -> IResult<&str, Vec<&str>> {
+        separated_list1(line_ending, alpha1)(s)
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use itertools::assert_equal;
+
     use super::*;
 
     #[test]
     fn example_group() {
         assert_eq!(
-            parse_group(
+            parsers::group(
                 "\
 abcx
 abcy
@@ -79,7 +84,7 @@ abcz"
     #[test]
     fn example_input() {
         assert_eq!(
-            parse_input(
+            parsers::input(
                 "\
 abc
 
@@ -97,22 +102,19 @@ a
 
 b"
             ),
-            Ok((
-                "",
-                vec![
-                    vec!["abc"],
-                    vec!["a", "b", "c"],
-                    vec!["ab", "ac"],
-                    vec!["a"; 4],
-                    vec!["b"]
-                ]
-            ))
+            Ok(vec![
+                vec!["abc"],
+                vec!["a", "b", "c"],
+                vec!["ab", "ac"],
+                vec!["a"; 4],
+                vec!["b"]
+            ])
         );
     }
 
     #[test]
     fn example_1() {
-        itertools::assert_equal(
+        assert_equal(
             unique_answers(&["abcx", "abcy", "abcz"]),
             vec!['a', 'b', 'c', 'x', 'y', 'z'],
         )
@@ -120,7 +122,7 @@ b"
 
     #[test]
     fn example_2() {
-        itertools::assert_equal(
+        assert_equal(
             [
                 vec!["abc"],
                 vec!["a", "b", "c"],
@@ -141,7 +143,7 @@ b"
 
     #[test]
     fn example_3() {
-        itertools::assert_equal(
+        assert_equal(
             [
                 vec!["abc"],
                 vec!["a", "b", "c"],

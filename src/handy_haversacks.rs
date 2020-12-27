@@ -1,20 +1,31 @@
 //! Day 7
 
-use nom::{
-    branch::alt,
-    bytes::complete::tag,
-    character::complete::{alpha1, char, digit1, line_ending},
-    combinator::{all_consuming, map_res, opt, recognize, value},
-    multi::separated_list1,
-    sequence::{separated_pair, terminated},
-    IResult,
-};
 use std::{
     collections::{HashMap, HashSet},
     hash::Hash,
 };
 
-fn build_containee_map<K1, K2>(data: &[(K1, impl AsRef<[(K2, usize)]>)]) -> HashMap<K2, Vec<K1>>
+trait Solution {
+    fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
+}
+impl Solution for str {
+    fn part_1(&self) -> usize {
+        bfs(
+            "shiny gold",
+            &build_containee_map(&parsers::input(self).expect("Failed to parse the input")),
+        )
+        .len()
+    }
+    fn part_2(&self) -> usize {
+        count_nesting(
+            "shiny gold",
+            &build_container_map(&parsers::input(self).expect("Failed to parse the input")),
+        )
+    }
+}
+
+fn build_containee_map<K1, K2, V>(data: &[(K1, impl AsRef<[(K2, V)]>)]) -> HashMap<K2, Vec<K1>>
 where
     K1: Eq + Hash + Clone,
     K2: Eq + Hash + Clone,
@@ -85,49 +96,46 @@ where
     sums[&end]
 }
 
-fn parse_color(s: &str) -> IResult<&str, &str> {
-    recognize(separated_pair(alpha1, char(' '), alpha1))(s)
-}
-fn parse_quantified_bag(s: &str) -> IResult<&str, (&str, usize)> {
-    let (s, num) = map_res(digit1, |s: &str| s.parse())(s)?;
-    let (s, _) = char(' ')(s)?;
-    let (s, color) = parse_color(s)?;
-    let (s, _) = terminated(tag(" bag"), opt(char('s')))(s)?;
-    Ok((s, (color, num)))
-}
-fn parse_line(s: &str) -> IResult<&str, (&str, Vec<(&str, usize)>)> {
-    let (s, container) = parse_color(s)?;
-    let (s, _) = tag(" bags contain ")(s)?;
-    let (s, containees) = terminated(
-        alt((
-            separated_list1(tag(", "), parse_quantified_bag),
-            value(Vec::new(), tag("no other bags")),
-        )),
-        char('.'),
-    )(s)?;
-    Ok((s, (container, containees)))
-}
-fn parse_input(s: &str) -> IResult<&str, Vec<(&str, Vec<(&str, usize)>)>> {
-    all_consuming(separated_list1(line_ending, parse_line))(s)
-}
+mod parsers {
+    use nom::{
+        branch::alt,
+        bytes::complete::tag,
+        character::complete::{alpha1, char, line_ending, space1},
+        combinator::{map, opt, recognize, value},
+        error::Error,
+        multi::separated_list1,
+        sequence::{pair, separated_pair, terminated},
+        IResult,
+    };
 
-trait Solution {
-    fn part_1(&self) -> usize;
-    fn part_2(&self) -> usize;
-}
-impl Solution for str {
-    fn part_1(&self) -> usize {
-        bfs(
-            "shiny gold",
-            &build_containee_map(&parse_input(self).expect("Failed to parse the input").1),
-        )
-        .len()
+    use crate::parsers::{finished_parser, integer};
+
+    pub fn input(s: &str) -> Result<Vec<(&str, Vec<(&str, usize)>)>, Error<&str>> {
+        finished_parser(separated_list1(line_ending, line))(s)
     }
-    fn part_2(&self) -> usize {
-        count_nesting(
-            "shiny gold",
-            &build_container_map(&parse_input(self).expect("Failed to parse the input").1),
-        )
+    fn line(s: &str) -> IResult<&str, (&str, Vec<(&str, usize)>)> {
+        separated_pair(
+            color,
+            tag(" bags contain "),
+            terminated(
+                alt((
+                    separated_list1(tag(", "), quantified_bag),
+                    value(Vec::new(), tag("no other bags")),
+                )),
+                char('.'),
+            ),
+        )(s)
+    }
+    fn color(s: &str) -> IResult<&str, &str> {
+        recognize(separated_pair(alpha1, char(' '), alpha1))(s)
+    }
+    fn quantified_bag(s: &str) -> IResult<&str, (&str, usize)> {
+        terminated(
+            map(separated_pair(integer, space1, color), |(num, color)| {
+                (color, num)
+            }),
+            pair(tag(" bag"), opt(char('s'))),
+        )(s)
     }
 }
 
@@ -138,7 +146,7 @@ mod tests {
     #[test]
     fn example_input() {
         assert_eq!(
-            parse_input(
+            parsers::input(
                 "\
 light red bags contain 1 bright white bag, 2 muted yellow bags.
 dark orange bags contain 3 bright white bags, 4 muted yellow bags.
@@ -150,23 +158,20 @@ vibrant plum bags contain 5 faded blue bags, 6 dotted black bags.
 faded blue bags contain no other bags.
 dotted black bags contain no other bags."
             ),
-            Ok((
-                "",
-                vec![
-                    ("light red", vec![("bright white", 1), ("muted yellow", 2)]),
-                    (
-                        "dark orange",
-                        vec![("bright white", 3), ("muted yellow", 4)]
-                    ),
-                    ("bright white", vec![("shiny gold", 1)]),
-                    ("muted yellow", vec![("shiny gold", 2), ("faded blue", 9)]),
-                    ("shiny gold", vec![("dark olive", 1), ("vibrant plum", 2)]),
-                    ("dark olive", vec![("faded blue", 3), ("dotted black", 4)]),
-                    ("vibrant plum", vec![("faded blue", 5), ("dotted black", 6)]),
-                    ("faded blue", vec![]),
-                    ("dotted black", vec![]),
-                ]
-            ))
+            Ok(vec![
+                ("light red", vec![("bright white", 1), ("muted yellow", 2)]),
+                (
+                    "dark orange",
+                    vec![("bright white", 3), ("muted yellow", 4)]
+                ),
+                ("bright white", vec![("shiny gold", 1)]),
+                ("muted yellow", vec![("shiny gold", 2), ("faded blue", 9)]),
+                ("shiny gold", vec![("dark olive", 1), ("vibrant plum", 2)]),
+                ("dark olive", vec![("faded blue", 3), ("dotted black", 4)]),
+                ("vibrant plum", vec![("faded blue", 5), ("dotted black", 6)]),
+                ("faded blue", vec![]),
+                ("dotted black", vec![]),
+            ])
         );
     }
 
@@ -231,7 +236,7 @@ dotted black bags contain no other bags."
             count_nesting(
                 "shiny gold",
                 &build_container_map(
-                    &parse_input(
+                    &parsers::input(
                         "\
 shiny gold bags contain 2 dark red bags.
 dark red bags contain 2 dark orange bags.
@@ -242,7 +247,6 @@ dark blue bags contain 2 dark violet bags.
 dark violet bags contain no other bags."
                     )
                     .unwrap()
-                    .1
                 )
             ),
             126

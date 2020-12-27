@@ -1,7 +1,33 @@
 //! Day 1
 
 use num_traits::{CheckedSub, Zero};
-use std::{ops::Mul, str::FromStr};
+
+trait Solution {
+    fn part_1(&self) -> u32;
+    fn part_2(&self) -> u32;
+}
+impl Solution for str {
+    fn part_1(&self) -> u32 {
+        find_sum(
+            &parsers::input(self).expect("Failed to parse the input"),
+            2020,
+            2,
+        )
+        .expect("Solution not found")
+        .into_iter()
+        .product()
+    }
+    fn part_2(&self) -> u32 {
+        find_sum(
+            &parsers::input(self).expect("Failed to parse the input"),
+            2020,
+            3,
+        )
+        .expect("Solution not found")
+        .into_iter()
+        .product()
+    }
+}
 
 pub fn find_sum<T: Zero + CheckedSub + Copy>(values: &[T], sum: T, n: usize) -> Option<Vec<T>> {
     if n == 0 {
@@ -26,35 +52,8 @@ pub fn find_sum<T: Zero + CheckedSub + Copy>(values: &[T], sum: T, n: usize) -> 
     })
 }
 
-fn parse_input<T: FromStr>(text: &str) -> Result<Vec<T>, <T as FromStr>::Err> {
-    text.lines().map(str::parse).collect()
-}
-
-trait Solution {
-    fn part_1(&self) -> u32;
-    fn part_2(&self) -> u32;
-}
-impl Solution for str {
-    fn part_1(&self) -> u32 {
-        find_sum(
-            &parse_input(self).expect("Failed to parse the input"),
-            2020,
-            2,
-        )
-        .expect("Solution not found")
-        .iter()
-        .fold(1, Mul::mul)
-    }
-    fn part_2(&self) -> u32 {
-        find_sum(
-            &parse_input(self).expect("Failed to parse the input"),
-            2020,
-            3,
-        )
-        .expect("Solution not found")
-        .iter()
-        .fold(1, Mul::mul)
-    }
+mod parsers {
+    pub use crate::parsers::number_list as input;
 }
 
 #[cfg(test)]
@@ -64,7 +63,7 @@ mod tests {
     #[test]
     fn example_input() {
         assert_eq!(
-            parse_input(
+            parsers::input(
                 "\
 1721
 979

@@ -1,15 +1,43 @@
 //! Day 16
 
+use std::{cmp::PartialOrd, collections::HashSet};
+
 use itertools::Itertools;
-use nom::{
-    bytes::complete::{tag, take_till},
-    character::complete::{char, digit1, line_ending},
-    combinator::map_res,
-    multi::separated_list1,
-    sequence::{separated_pair, terminated},
-    IResult,
-};
-use std::{cmp::PartialOrd, collections::HashSet, str::FromStr};
+
+trait Solution {
+    fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
+}
+impl Solution for str {
+    fn part_1(&self) -> usize {
+        let (rules, _, tickets) = parsers::input(self).expect("Failed to parse the input");
+        let rules = rules.into_iter().map(|(_, rule)| rule).collect::<Vec<_>>();
+        tickets
+            .iter()
+            .flat_map(|ticket| invalid_fields(ticket, &rules))
+            .sum()
+    }
+    fn part_2(&self) -> usize {
+        let (named_rules, your_ticket, tickets) =
+            parsers::input::<usize>(self).expect("Failed to parse the input");
+        let rules = named_rules
+            .iter()
+            .map(|(_, rule)| *rule)
+            .collect::<Vec<_>>();
+        find_fields(&tickets, &rules)
+            .expect("Field mapping not found")
+            .into_iter()
+            .enumerate()
+            .filter_map(|(rule_ix, field_ix)| {
+                if named_rules[rule_ix].0.starts_with("departure") {
+                    Some(your_ticket[field_ix])
+                } else {
+                    None
+                }
+            })
+            .product()
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Range<T> {
@@ -17,7 +45,7 @@ struct Range<T> {
     max: T,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct RangeUnion<T> {
+pub struct RangeUnion<T> {
     first: Range<T>,
     second: Range<T>,
 }
@@ -85,67 +113,47 @@ impl<T: PartialOrd> RangeUnion<T> {
     }
 }
 
-fn parse_input<T: FromStr>(
-    s: &str,
-) -> IResult<&str, (Vec<(&str, RangeUnion<T>)>, Vec<T>, Vec<Vec<T>>)> {
-    let (s, rules) = terminated(separated_list1(line_ending, parse_rule), line_ending)(s)?;
-    let (s, _) = line_ending(s)?;
-    let (s, _) = terminated(tag("your ticket:"), line_ending)(s)?;
-    let (s, yours) = terminated(separated_list1(char(','), parse_integer), line_ending)(s)?;
-    let (s, _) = line_ending(s)?;
-    let (s, _) = terminated(tag("nearby tickets:"), line_ending)(s)?;
-    let (s, nearby) = separated_list1(line_ending, separated_list1(char(','), parse_integer))(s)?;
-    Ok((s, (rules, yours, nearby)))
-}
+mod parsers {
+    use std::str::FromStr;
 
-fn parse_rule<T: FromStr>(s: &str) -> IResult<&str, (&str, RangeUnion<T>)> {
-    separated_pair(take_till(|c| c == ':'), tag(": "), parse_range_union)(s)
-}
-fn parse_range_union<T: FromStr>(s: &str) -> IResult<&str, RangeUnion<T>> {
-    let (s, (first, second)) = separated_pair(parse_range, tag(" or "), parse_range)(s)?;
-    Ok((s, RangeUnion { first, second }))
-}
-fn parse_range<T: FromStr>(s: &str) -> IResult<&str, Range<T>> {
-    let (s, (min, max)) = separated_pair(parse_integer, char('-'), parse_integer)(s)?;
-    Ok((s, Range { min, max }))
-}
-fn parse_integer<T: FromStr>(s: &str) -> IResult<&str, T> {
-    map_res(digit1, |s: &str| s.parse())(s)
-}
+    use nom::{
+        bytes::complete::{tag, take_till},
+        character::complete::{char, line_ending},
+        error::Error,
+        multi::separated_list1,
+        sequence::{separated_pair, terminated},
+        IResult,
+    };
 
-trait Solution {
-    fn part_1(&self) -> usize;
-    fn part_2(&self) -> usize;
-}
-impl Solution for str {
-    fn part_1(&self) -> usize {
-        let (rules, _, tickets) = parse_input(self).expect("Failed to parse the input").1;
-        let rules = rules.into_iter().map(|(_, rule)| rule).collect::<Vec<_>>();
-        tickets
-            .iter()
-            .flat_map(|ticket| invalid_fields(ticket, &rules))
-            .sum()
+    use crate::parsers::{finished_parser, integer};
+
+    use super::{Range, RangeUnion};
+
+    pub fn input<T: FromStr>(
+        s: &str,
+    ) -> Result<(Vec<(&str, RangeUnion<T>)>, Vec<T>, Vec<Vec<T>>), Error<&str>> {
+        finished_parser(move |s| {
+            let (s, rules) = terminated(separated_list1(line_ending, rule), line_ending)(s)?;
+            let (s, _) = line_ending(s)?;
+            let (s, _) = terminated(tag("your ticket:"), line_ending)(s)?;
+            let (s, yours) = terminated(separated_list1(char(','), integer), line_ending)(s)?;
+            let (s, _) = line_ending(s)?;
+            let (s, _) = terminated(tag("nearby tickets:"), line_ending)(s)?;
+            let (s, nearby) = separated_list1(line_ending, separated_list1(char(','), integer))(s)?;
+            Ok((s, (rules, yours, nearby)))
+        })(s)
     }
-    fn part_2(&self) -> usize {
-        let (named_rules, your_ticket, tickets) = parse_input::<usize>(self)
-            .expect("Failed to parse the input")
-            .1;
-        let rules = named_rules
-            .iter()
-            .map(|(_, rule)| *rule)
-            .collect::<Vec<_>>();
-        find_fields(&tickets, &rules)
-            .expect("Field mapping not found")
-            .iter()
-            .enumerate()
-            .filter_map(|(rule_ix, &field_ix)| {
-                if named_rules[rule_ix].0.starts_with("departure") {
-                    Some(your_ticket[field_ix])
-                } else {
-                    None
-                }
-            })
-            .product()
+
+    fn rule<T: FromStr>(s: &str) -> IResult<&str, (&str, RangeUnion<T>)> {
+        separated_pair(take_till(|c| c == ':'), tag(": "), range_union)(s)
+    }
+    fn range_union<T: FromStr>(s: &str) -> IResult<&str, RangeUnion<T>> {
+        let (s, (first, second)) = separated_pair(range, tag(" or "), range)(s)?;
+        Ok((s, RangeUnion { first, second }))
+    }
+    fn range<T: FromStr>(s: &str) -> IResult<&str, Range<T>> {
+        let (s, (min, max)) = separated_pair(integer, char('-'), integer)(s)?;
+        Ok((s, Range { min, max }))
     }
 }
 
@@ -158,7 +166,7 @@ mod tests {
     #[test]
     fn example_input() {
         assert_eq!(
-            parse_input(
+            parsers::input(
                 "\
 class: 1-3 or 5-7
 row: 6-11 or 33-44
@@ -174,39 +182,36 @@ nearby tickets:
 38,6,12"
             ),
             Ok((
-                "",
-                (
-                    vec![
-                        (
-                            "class",
-                            RangeUnion {
-                                first: Range { min: 1, max: 3 },
-                                second: Range { min: 5, max: 7 }
-                            }
-                        ),
-                        (
-                            "row",
-                            RangeUnion {
-                                first: Range { min: 6, max: 11 },
-                                second: Range { min: 33, max: 44 }
-                            }
-                        ),
-                        (
-                            "seat",
-                            RangeUnion {
-                                first: Range { min: 13, max: 40 },
-                                second: Range { min: 45, max: 50 }
-                            }
-                        ),
-                    ],
-                    vec![7, 1, 14],
-                    vec![
-                        vec![7, 3, 47],
-                        vec![40, 4, 50],
-                        vec![55, 2, 20],
-                        vec![38, 6, 12],
-                    ]
-                )
+                vec![
+                    (
+                        "class",
+                        RangeUnion {
+                            first: Range { min: 1, max: 3 },
+                            second: Range { min: 5, max: 7 }
+                        }
+                    ),
+                    (
+                        "row",
+                        RangeUnion {
+                            first: Range { min: 6, max: 11 },
+                            second: Range { min: 33, max: 44 }
+                        }
+                    ),
+                    (
+                        "seat",
+                        RangeUnion {
+                            first: Range { min: 13, max: 40 },
+                            second: Range { min: 45, max: 50 }
+                        }
+                    ),
+                ],
+                vec![7, 1, 14],
+                vec![
+                    vec![7, 3, 47],
+                    vec![40, 4, 50],
+                    vec![55, 2, 20],
+                    vec![38, 6, 12],
+                ]
             ))
         );
     }

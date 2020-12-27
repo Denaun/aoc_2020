@@ -2,15 +2,24 @@
 
 use std::collections::{HashSet, VecDeque};
 
-use nom::{
-    bytes::streaming::tag,
-    character::complete::line_ending,
-    multi::separated_list1,
-    sequence::{pair, separated_pair, terminated},
-    IResult,
-};
-
-use crate::docking_data::parse_integer;
+trait Solution {
+    fn part_1(&self) -> u64;
+    fn part_2(&self) -> u64;
+}
+impl Solution for str {
+    fn part_1(&self) -> u64 {
+        let (player_1, player_2) = parsers::input(self).expect("Failed to parse the input");
+        let mut game = Combat::new(player_1, player_2);
+        game.play_out();
+        game.winner_score()
+    }
+    fn part_2(&self) -> u64 {
+        let (player_1, player_2) = parsers::input(self).expect("Failed to parse the input");
+        let mut game = RecursiveCombat::new(player_1, player_2);
+        game.play_out();
+        game.winner_score()
+    }
+}
 
 type Card = u64;
 struct Combat {
@@ -141,39 +150,31 @@ impl Deck {
     }
 }
 
-fn parse_input(s: &str) -> IResult<&str, (Vec<Card>, Vec<Card>)> {
-    separated_pair(
-        parse_deck("1"),
-        pair(line_ending, line_ending),
-        parse_deck("2"),
-    )(s)
-}
-fn parse_deck(player: impl Into<String>) -> impl FnMut(&str) -> IResult<&str, Vec<Card>> {
-    let player = player.into();
-    move |s| {
-        let (s, _) = tag("Player ")(s)?;
-        let (s, _) = tag(player.as_str())(s)?;
-        let (s, _) = terminated(tag(":"), line_ending)(s)?;
-        separated_list1(line_ending, parse_integer)(s)
-    }
-}
+mod parsers {
+    use nom::{
+        bytes::streaming::tag,
+        character::complete::line_ending,
+        error::Error,
+        multi::separated_list1,
+        sequence::{separated_pair, terminated},
+        IResult,
+    };
 
-trait Solution {
-    fn part_1(&self) -> u64;
-    fn part_2(&self) -> u64;
-}
-impl Solution for str {
-    fn part_1(&self) -> u64 {
-        let (player_1, player_2) = parse_input(self).expect("Failed to parse the input").1;
-        let mut game = Combat::new(player_1, player_2);
-        game.play_out();
-        game.winner_score()
+    use crate::parsers::{double_line_ending, finished_parser, integer};
+
+    use super::Card;
+
+    pub fn input(s: &str) -> Result<(Vec<Card>, Vec<Card>), Error<&str>> {
+        finished_parser(separated_pair(deck("1"), double_line_ending, deck("2")))(s)
     }
-    fn part_2(&self) -> u64 {
-        let (player_1, player_2) = parse_input(self).expect("Failed to parse the input").1;
-        let mut game = RecursiveCombat::new(player_1, player_2);
-        game.play_out();
-        game.winner_score()
+    fn deck(player: impl Into<String>) -> impl FnMut(&str) -> IResult<&str, Vec<Card>> {
+        let player = player.into();
+        move |s| {
+            let (s, _) = tag("Player ")(s)?;
+            let (s, _) = tag(player.as_str())(s)?;
+            let (s, _) = terminated(tag(":"), line_ending)(s)?;
+            separated_list1(line_ending, integer)(s)
+        }
     }
 }
 
@@ -210,7 +211,7 @@ Player 2:
 
     #[test]
     fn example_2() {
-        let (player_1, player_2) = parse_input(
+        let (player_1, player_2) = parsers::input(
             "\
 Player 1:
 43
@@ -221,8 +222,7 @@ Player 2:
 29
 14",
         )
-        .unwrap()
-        .1;
+        .unwrap();
         let mut game = RecursiveCombat::new(player_1, player_2);
         for _ in 0..7 {
             game.play_round();

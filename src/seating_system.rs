@@ -1,21 +1,31 @@
 //! Day 11
 
-use nom::{
-    branch::alt,
-    character::complete::{char, line_ending},
-    combinator::{all_consuming, value},
-    multi::{many0, separated_list0},
-    IResult,
-};
 use std::ops::{Index, IndexMut};
 
+trait Solution {
+    fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
+}
+impl Solution for str {
+    fn part_1(&self) -> usize {
+        let mut layout = parsers::input(self).expect("Failed to parse the input");
+        while !layout.simulate_shortsighted() {}
+        layout.occupied()
+    }
+    fn part_2(&self) -> usize {
+        let mut layout = parsers::input(self).expect("Failed to parse the input");
+        while !layout.simulate_farsighted() {}
+        layout.occupied()
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
-struct Layout {
+pub struct Layout {
     pub storage: Vec<Vec<Option<bool>>>,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-struct LayoutPos {
+pub struct LayoutPos {
     row: usize,
     col: usize,
 }
@@ -213,32 +223,32 @@ impl IndexMut<LayoutPos> for Layout {
     }
 }
 
-fn parse_input(s: &str) -> IResult<&str, Layout> {
-    let (s, storage) = all_consuming(separated_list0(
-        line_ending,
-        many0(alt((
-            value(None, char('.')),
-            value(Some(false), char('L')),
-            value(Some(true), char('#')),
-        ))),
-    ))(s)?;
-    Ok((s, Layout { storage }))
-}
+mod parsers {
+    use nom::{
+        branch::alt,
+        character::complete::{char, line_ending},
+        combinator::value,
+        error::Error,
+        multi::{many0, separated_list0},
+        IResult,
+    };
 
-trait Solution {
-    fn part_1(&self) -> usize;
-    fn part_2(&self) -> usize;
-}
-impl Solution for str {
-    fn part_1(&self) -> usize {
-        let mut layout = parse_input(self).expect("Failed to parse the input").1;
-        while !layout.simulate_shortsighted() {}
-        layout.occupied()
+    use crate::parsers::finished_parser;
+
+    use super::Layout;
+
+    pub fn input(s: &str) -> Result<Layout, Error<&str>> {
+        finished_parser(storage)(s).map(|storage| Layout { storage })
     }
-    fn part_2(&self) -> usize {
-        let mut layout = parse_input(self).expect("Failed to parse the input").1;
-        while !layout.simulate_farsighted() {}
-        layout.occupied()
+    fn storage(s: &str) -> IResult<&str, Vec<Vec<Option<bool>>>> {
+        separated_list0(
+            line_ending,
+            many0(alt((
+                value(None, char('.')),
+                value(Some(false), char('L')),
+                value(Some(true), char('#')),
+            ))),
+        )(s)
     }
 }
 
@@ -249,22 +259,19 @@ mod tests {
     #[test]
     fn dummy_input() {
         assert_eq!(
-            parse_input("L.L\nLL#"),
-            Ok((
-                "",
-                Layout {
-                    storage: vec![
-                        vec![Some(false), None, Some(false)],
-                        vec![Some(false), Some(false), Some(true)],
-                    ]
-                }
-            ))
+            parsers::input("L.L\nLL#"),
+            Ok(Layout {
+                storage: vec![
+                    vec![Some(false), None, Some(false)],
+                    vec![Some(false), Some(false), Some(true)],
+                ]
+            })
         );
     }
 
     #[test]
     fn example_1() {
-        let mut layout = parse_input(
+        let mut layout = parsers::input(
             "\
 L.LL.LL.LL
 LLLLLLL.LL
@@ -277,12 +284,11 @@ LLLLLLLLLL
 L.LLLLLL.L
 L.LLLLL.LL",
         )
-        .unwrap()
-        .1;
+        .unwrap();
         assert!(!layout.simulate_shortsighted());
         assert_eq!(
             layout,
-            parse_input(
+            parsers::input(
                 "\
 #.##.##.##
 #######.##
@@ -296,12 +302,11 @@ L.LLLLL.LL",
 #.#####.##"
             )
             .unwrap()
-            .1
         );
         assert!(!layout.simulate_shortsighted());
         assert_eq!(
             layout,
-            parse_input(
+            parsers::input(
                 "\
 #.LL.L#.##
 #LLLLLL.L#
@@ -315,12 +320,11 @@ L.L.L..L..
 #.#LLLL.##"
             )
             .unwrap()
-            .1
         );
         assert!(!layout.simulate_shortsighted());
         assert_eq!(
             layout,
-            parse_input(
+            parsers::input(
                 "\
 #.##.L#.##
 #L###LL.L#
@@ -334,12 +338,11 @@ L.#.#..#..
 #.#L###.##"
             )
             .unwrap()
-            .1
         );
         assert!(!layout.simulate_shortsighted());
         assert_eq!(
             layout,
-            parse_input(
+            parsers::input(
                 "\
 #.#L.L#.##
 #LLL#LL.L#
@@ -353,12 +356,11 @@ L.L.L..#..
 #.#L#L#.##"
             )
             .unwrap()
-            .1
         );
         assert!(!layout.simulate_shortsighted());
         assert_eq!(
             layout,
-            parse_input(
+            parsers::input(
                 "\
 #.#L.L#.##
 #LLL#LL.L#
@@ -372,7 +374,6 @@ L.#.L..#..
 #.#L#L#.##"
             )
             .unwrap()
-            .1
         );
         assert!(layout.simulate_shortsighted());
         assert_eq!(layout.occupied(), 37);
@@ -386,7 +387,7 @@ L.#.L..#..
     #[test]
     fn example_2() {
         assert_eq!(
-            parse_input(
+            parsers::input(
                 "\
 .......#.
 ...#.....
@@ -399,7 +400,6 @@ L.#.L..#..
 ...#....."
             )
             .unwrap()
-            .1
             .n_visible(LayoutPos { row: 4, col: 3 }),
             8
         );
@@ -408,14 +408,13 @@ L.#.L..#..
     #[test]
     fn example_3() {
         assert_eq!(
-            parse_input(
+            parsers::input(
                 "\
 .............
 .L.L.#.#.#.#.
 ............."
             )
             .unwrap()
-            .1
             .visible(LayoutPos { row: 1, col: 1 })
             .iter()
             .flatten()
@@ -427,7 +426,7 @@ L.#.L..#..
     #[test]
     fn example_4() {
         assert_eq!(
-            parse_input(
+            parsers::input(
                 "\
 .##.##.
 #.#.#.#
@@ -438,7 +437,6 @@ L.#.L..#..
 .##.##."
             )
             .unwrap()
-            .1
             .n_visible(LayoutPos { row: 3, col: 3 }),
             0
         );
@@ -446,7 +444,7 @@ L.#.L..#..
 
     #[test]
     fn example_5() {
-        let mut layout = parse_input(
+        let mut layout = parsers::input(
             "\
 L.LL.LL.LL
 LLLLLLL.LL
@@ -459,12 +457,11 @@ LLLLLLLLLL
 L.LLLLLL.L
 L.LLLLL.LL",
         )
-        .unwrap()
-        .1;
+        .unwrap();
         assert!(!layout.simulate_farsighted());
         assert_eq!(
             layout,
-            parse_input(
+            parsers::input(
                 "\
 #.##.##.##
 #######.##
@@ -478,12 +475,11 @@ L.LLLLL.LL",
 #.#####.##"
             )
             .unwrap()
-            .1
         );
         assert!(!layout.simulate_farsighted());
         assert_eq!(
             layout,
-            parse_input(
+            parsers::input(
                 "\
 #.LL.LL.L#
 #LLLLLL.LL
@@ -497,12 +493,11 @@ LLLLLLLLL#
 #.LLLLL.L#"
             )
             .unwrap()
-            .1
         );
         assert!(!layout.simulate_farsighted());
         assert_eq!(
             layout,
-            parse_input(
+            parsers::input(
                 "\
 #.L#.##.L#
 #L#####.LL
@@ -516,12 +511,11 @@ LLL####LL#
 #.L####.L#"
             )
             .unwrap()
-            .1
         );
         assert!(!layout.simulate_farsighted());
         assert_eq!(
             layout,
-            parse_input(
+            parsers::input(
                 "\
 #.L#.L#.L#
 #LLLLLL.LL
@@ -535,12 +529,11 @@ LLLLLLLLL#
 #.L#LL#.L#"
             )
             .unwrap()
-            .1
         );
         assert!(!layout.simulate_farsighted());
         assert_eq!(
             layout,
-            parse_input(
+            parsers::input(
                 "\
 #.L#.L#.L#
 #LLLLLL.LL
@@ -554,12 +547,11 @@ LLL###LLL#
 #.L#LL#.L#"
             )
             .unwrap()
-            .1
         );
         assert!(!layout.simulate_farsighted());
         assert_eq!(
             layout,
-            parse_input(
+            parsers::input(
                 "\
 #.L#.L#.L#
 #LLLLLL.LL
@@ -573,7 +565,6 @@ LLL###LLL#
 #.L#LL#.L#"
             )
             .unwrap()
-            .1
         );
         assert!(layout.simulate_farsighted());
         assert_eq!(layout.occupied(), 26);

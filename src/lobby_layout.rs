@@ -2,19 +2,40 @@
 
 use std::collections::{HashMap, HashSet};
 
-use nom::{
-    branch::alt,
-    bytes::complete::tag,
-    character::complete::line_ending,
-    combinator::value,
-    multi::{many1, separated_list1},
-    IResult,
-};
+trait Solution {
+    fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
+}
+impl Solution for str {
+    fn part_1(&self) -> usize {
+        find_black_tiles(
+            parsers::input(self)
+                .expect("Failed to parse the input")
+                .into_iter()
+                .map(fold_axial_coordinates),
+        )
+        .len()
+    }
+    fn part_2(&self) -> usize {
+        let mut floor = ArtExhibit {
+            black_tiles: find_black_tiles(
+                parsers::input(self)
+                    .expect("Failed to parse the input")
+                    .into_iter()
+                    .map(fold_axial_coordinates),
+            ),
+        };
+        for _ in 0..100 {
+            floor.next_day();
+        }
+        floor.black_tiles.len()
+    }
+}
 
 type Coord = (i32, i32);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Direction {
+pub enum Direction {
     East,
     SouthEast,
     SouthWest,
@@ -104,49 +125,33 @@ impl ArtExhibit {
     }
 }
 
-fn parse_input(s: &str) -> IResult<&str, Vec<Vec<Direction>>> {
-    separated_list1(line_ending, many1(parse_direction))(s)
-}
-fn parse_direction(s: &str) -> IResult<&str, Direction> {
-    alt((
-        value(Direction::East, tag("e")),
-        value(Direction::SouthEast, tag("se")),
-        value(Direction::SouthWest, tag("sw")),
-        value(Direction::West, tag("w")),
-        value(Direction::NorthWest, tag("nw")),
-        value(Direction::NorthEast, tag("ne")),
-    ))(s)
-}
+mod parsers {
+    use nom::{
+        branch::alt,
+        bytes::complete::tag,
+        character::complete::line_ending,
+        combinator::value,
+        error::Error,
+        multi::{many1, separated_list1},
+        IResult,
+    };
 
-trait Solution {
-    fn part_1(&self) -> usize;
-    fn part_2(&self) -> usize;
-}
-impl Solution for str {
-    fn part_1(&self) -> usize {
-        find_black_tiles(
-            parse_input(self)
-                .expect("Failed to parse the input")
-                .1
-                .into_iter()
-                .map(fold_axial_coordinates),
-        )
-        .len()
+    use crate::parsers::finished_parser;
+
+    use super::Direction;
+
+    pub fn input(s: &str) -> Result<Vec<Vec<Direction>>, Error<&str>> {
+        finished_parser(separated_list1(line_ending, many1(direction)))(s)
     }
-    fn part_2(&self) -> usize {
-        let mut floor = ArtExhibit {
-            black_tiles: find_black_tiles(
-                parse_input(self)
-                    .expect("Failed to parse the input")
-                    .1
-                    .into_iter()
-                    .map(fold_axial_coordinates),
-            ),
-        };
-        for _ in 0..100 {
-            floor.next_day();
-        }
-        floor.black_tiles.len()
+    fn direction(s: &str) -> IResult<&str, Direction> {
+        alt((
+            value(Direction::East, tag("e")),
+            value(Direction::SouthEast, tag("se")),
+            value(Direction::SouthWest, tag("sw")),
+            value(Direction::West, tag("w")),
+            value(Direction::NorthWest, tag("nw")),
+            value(Direction::NorthEast, tag("ne")),
+        ))(s)
     }
 }
 
@@ -177,9 +182,8 @@ wnwnesenesenenwwnenwsewesewsesesew
 nenewswnwewswnenesenwnesewesw
 eneswnwswnwsenenwnwnwwseeswneewsenese
 neswnwewnwnwseenwseesewsenwsweewe
-wseweeenwnesenwwwswnew
-"
-            .part_1(),
+wseweeenwnesenwwwswnew"
+                .part_1(),
             10
         );
     }
@@ -193,7 +197,7 @@ wseweeenwnesenwwwswnew
     fn example_2() {
         let mut floor = ArtExhibit {
             black_tiles: find_black_tiles(
-                parse_input(
+                parsers::input(
                     "\
 sesenwnenenewseeswwswswwnenewsewsw
 neeenesenwnwwswnenewnwwsewnenwseswesw
@@ -214,11 +218,9 @@ wnwnesenesenenwwnenwsewesewsesesew
 nenewswnwewswnenesenwnesewesw
 eneswnwswnwsenenwnwnwwseeswneewsenese
 neswnwewnwnwseenwseesewsenwsweewe
-wseweeenwnesenwwwswnew
-",
+wseweeenwnesenwwwswnew",
                 )
                 .unwrap()
-                .1
                 .into_iter()
                 .map(fold_axial_coordinates),
             ),

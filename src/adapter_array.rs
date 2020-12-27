@@ -1,8 +1,27 @@
 //! Day 10
 
+use std::{collections::HashMap, hash::Hash, iter::once};
+
 use itertools::Itertools;
 use num_traits::{NumOps, Unsigned};
-use std::{collections::HashMap, hash::Hash, iter::once, str::FromStr};
+
+trait Solution {
+    fn part_1(&self) -> usize;
+    fn part_2(&self) -> usize;
+}
+impl Solution for str {
+    fn part_1(&self) -> usize {
+        let distribution: HashMap<u32, _> = calculate_distribution(diff(adapter_chain(
+            &parsers::input(self).expect("Failed to parse the input"),
+        )));
+        distribution[&1] * distribution[&3]
+    }
+    fn part_2(&self) -> usize {
+        let chain: Vec<usize> =
+            adapter_chain(&parsers::input(self).expect("Failed to parse the input")).collect_vec();
+        count_arrangements(&chain)
+    }
+}
 
 const MAX_OFFSET: u8 = 3;
 
@@ -49,26 +68,8 @@ where
     *path_counts.first().unwrap()
 }
 
-trait Solution {
-    fn part_1(&self) -> usize;
-    fn part_2(&self) -> usize;
-}
-impl Solution for str {
-    fn part_1(&self) -> usize {
-        let distribution: HashMap<u32, _> = calculate_distribution(diff(adapter_chain(
-            &parse_input(self).expect("Failed to parse the input"),
-        )));
-        distribution[&1] * distribution[&3]
-    }
-    fn part_2(&self) -> usize {
-        let chain: Vec<usize> =
-            adapter_chain(&parse_input(self).expect("Failed to parse the input")).collect_vec();
-        count_arrangements(&chain)
-    }
-}
-
-fn parse_input<T: FromStr>(text: &str) -> Result<Vec<T>, <T as FromStr>::Err> {
-    text.lines().map(str::parse).collect()
+mod parsers {
+    pub use crate::parsers::number_list as input;
 }
 
 #[cfg(test)]
@@ -78,7 +79,7 @@ mod tests {
     #[test]
     fn example_input() {
         assert_eq!(
-            parse_input(
+            parsers::input(
                 "\
 16
 10
