@@ -104,18 +104,9 @@ impl Tile {
             .find(move |this| Self::side_facing(&this.data, orientation) == side)
     }
     pub fn orientations(self) -> impl Iterator<Item = Self> {
-        iterate((self, 0), |(this, ix)| {
-            (
-                if ix % 4 == 0 {
-                    this.clone().flip_h()
-                } else {
-                    this.clone().rotate_clockwise()
-                },
-                ix + 1,
-            )
-        })
-        .take(8)
-        .map(|(this, _)| this)
+        iterate(self, |this| this.clone().flip_h())
+            .take(2)
+            .flat_map(|this| iterate(this, |this| this.clone().rotate_clockwise()).take(4))
     }
     fn flip_h(self) -> Self {
         Self {
