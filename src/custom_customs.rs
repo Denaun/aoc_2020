@@ -8,14 +8,13 @@ fn unique_answers<'a>(group: &'a [&str]) -> impl Iterator<Item = char> + 'a {
     group.iter().flat_map(|answers| answers.chars()).unique()
 }
 fn common_answers(group: &[&str]) -> Option<HashSet<char>> {
-    let mut group = group
+    group
         .iter()
-        .map(|answers| answers.chars().collect::<HashSet<_>>());
-    let first = group.next()?;
-    Some(group.fold(first, |mut common, answers| {
-        common.retain(|a| answers.contains(a));
-        common
-    }))
+        .map(|answers| answers.chars().collect::<HashSet<_>>())
+        .fold1(|mut common, answers| {
+            common.retain(|a| answers.contains(a));
+            common
+        })
 }
 
 mod parsers {
@@ -65,6 +64,8 @@ impl Solution for str {
 
 #[cfg(test)]
 mod tests {
+    use itertools::assert_equal;
+
     use super::*;
 
     #[test]
@@ -113,7 +114,7 @@ b"
 
     #[test]
     fn example_1() {
-        itertools::assert_equal(
+        assert_equal(
             unique_answers(&["abcx", "abcy", "abcz"]),
             vec!['a', 'b', 'c', 'x', 'y', 'z'],
         )
@@ -121,7 +122,7 @@ b"
 
     #[test]
     fn example_2() {
-        itertools::assert_equal(
+        assert_equal(
             [
                 vec!["abc"],
                 vec!["a", "b", "c"],
@@ -142,7 +143,7 @@ b"
 
     #[test]
     fn example_3() {
-        itertools::assert_equal(
+        assert_equal(
             [
                 vec!["abc"],
                 vec!["a", "b", "c"],
