@@ -1,4 +1,4 @@
-//! Day 1
+//! Day 18
 
 use std::ops::{Add, Mul};
 
