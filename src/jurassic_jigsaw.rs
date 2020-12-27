@@ -5,7 +5,9 @@ use std::collections::HashSet;
 use bitvec::prelude::*;
 use itertools::{iterate, Itertools};
 
-const SEA_MONSTER: [(usize, usize); 15] = [
+type Coordinate = (usize, usize);
+
+const SEA_MONSTER: [Coordinate; 15] = [
     (0, 18),
     (1, 0),
     (1, 5),
@@ -22,6 +24,14 @@ const SEA_MONSTER: [(usize, usize); 15] = [
     (2, 13),
     (2, 16),
 ];
+
+fn offsetted<'a>(
+    mask: &'a [Coordinate],
+    offset: &'a Coordinate,
+) -> impl Iterator<Item = Coordinate> + 'a {
+    let (x, y) = offset;
+    mask.iter().map(move |(x0, y0)| (x0 + x, y0 + y))
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tile {
@@ -99,11 +109,13 @@ impl Tile {
             .find(|tile| tile.id != self.id && tile.has_side(&my_side))
             .and_then(|tile| tile.clone().orient_to_side(&my_side, their_side))
     }
-    fn orient_to_side(self, side: &BitSlice, orientation: Orientation) -> Option<Self> {
-        self.orientations()
-            .find(move |this| Self::side_facing(&this.data, orientation) == side)
+    pub fn orient_to_side(self, side: &BitSlice, orientation: Orientation) -> Option<Self> {
+        self.orient_with(move |this| Self::side_facing(&this.data, orientation) == side)
     }
-    pub fn orientations(self) -> impl Iterator<Item = Self> {
+    pub fn orient_with(self, mut f: impl FnMut(&Self) -> bool) -> Option<Self> {
+        self.orientations().find(move |this| f(this))
+    }
+    fn orientations(self) -> impl Iterator<Item = Self> {
         iterate(self, |this| this.clone().flip_h())
             .take(2)
             .flat_map(|this| iterate(this, |this| this.clone().rotate_clockwise()).take(4))
@@ -135,27 +147,23 @@ impl Tile {
         }
     }
 
-    pub fn mask_all(&mut self, mask: &[(usize, usize)]) -> bool {
-        let max_x = mask.iter().map(|(x, _)| x).max();
-        let max_y = mask.iter().map(|(_, y)| y).max();
-        match (max_x, max_y) {
-            (Some(max_x), Some(max_y)) => {
-                let mut found = false;
-                for x in 0..self.data.len() - max_x {
-                    for y in 0..self.data.len() - max_y {
-                        let actual_coords = mask.iter().map(|(x0, y0)| (x0 + x, y0 + y));
-                        if actual_coords.clone().all(|(x, y)| self.data[x][y]) {
-                            found = true;
-                            for (x, y) in actual_coords {
-                                self.data[x].set(y, false);
-                            }
-                        }
-                    }
-                }
-                found
+    pub fn matches_mask(&self, mask: &[Coordinate]) -> bool {
+        self.mask_offsets(mask).next().is_some()
+    }
+    pub fn mask_all(&mut self, mask: &[Coordinate]) {
+        for offset in self.mask_offsets(mask).collect_vec() {
+            for (x, y) in offsetted(mask, &offset) {
+                self.data[x].set(y, false);
             }
-            _ => false,
         }
+    }
+    fn mask_offsets<'a>(&'a self, mask: &'a [Coordinate]) -> impl Iterator<Item = Coordinate> + 'a {
+        let data_len = self.data.len();
+        let max_x = *mask.iter().map(|(x, _)| x).max().unwrap_or(&data_len);
+        let max_y = *mask.iter().map(|(_, y)| y).max().unwrap_or(&data_len);
+        (0..data_len.saturating_sub(max_x))
+            .cartesian_product(0..data_len.saturating_sub(max_y))
+            .filter(move |offset| offsetted(mask, offset).all(|(x, y)| self.data[x][y]))
     }
 
     fn side_facing(data: &[BitVec], orientation: Orientation) -> BitVec {
@@ -191,11 +199,6 @@ impl Orientation {
     }
 }
 
-// struct Orientations<'a> {
-//     tile: Tile,
-//     dummy: ,
-// }
-
 fn corners<'a>(tiles: &'a [Tile]) -> impl Iterator<Item = &'a Tile> {
     tiles
         .iter()
@@ -205,8 +208,7 @@ fn build_image(tiles: &[Tile]) -> Option<Vec<Vec<Tile>>> {
     let top_left = corners(tiles)
         .next()?
         .clone()
-        .orientations()
-        .find(|tile| {
+        .orient_with(|tile| {
             !tile.is_side_shared(Orientation::Top, tiles)
                 && !tile.is_side_shared(Orientation::Left, tiles)
         })
@@ -276,13 +278,10 @@ impl Solution for str {
             build_image(&tiles).expect("Failed to build the full image"),
         );
         image
-            .orientations()
-            .find_map(|mut tile| {
-                if tile.mask_all(&SEA_MONSTER) {
-                    Some(tile)
-                } else {
-                    None
-                }
+            .orient_with(|tile| tile.matches_mask(&SEA_MONSTER))
+            .map(|mut tile| {
+                tile.mask_all(&SEA_MONSTER);
+                tile
             })
             .expect("Failed to find any sea monster")
             .data
@@ -608,11 +607,10 @@ Tile 3079:
         );
         assert_eq!(
             image
-                .orientations()
-                .find_map(|mut tile| if tile.mask_all(&SEA_MONSTER) {
-                    Some(tile)
-                } else {
-                    None
+                .orient_with(|tile| tile.matches_mask(&SEA_MONSTER))
+                .map(|mut tile| {
+                    tile.mask_all(&SEA_MONSTER);
+                    tile
                 })
                 .unwrap()
                 .data
