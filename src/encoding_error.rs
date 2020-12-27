@@ -1,8 +1,11 @@
 //! Day 9
 
-use crate::report_repair::find_sum;
-use num_traits::{CheckedSub, NumAssignOps, Unsigned, Zero};
 use std::iter::FromIterator;
+
+use itertools::Itertools;
+use num_traits::{CheckedSub, NumAssignOps, Unsigned, Zero};
+
+use crate::report_repair::find_sum;
 
 fn is_valid<T: Zero + CheckedSub + Copy>(value: T, values: &impl AsRef<[T]>) -> bool {
     find_sum(values.as_ref(), value, 2).is_some()
@@ -85,12 +88,13 @@ impl Solution for str {
         let input: Vec<u64> = parsers::input(self).expect("Failed to parse the input");
         let sum = find_first_non_valid(input[..25].iter().copied().collect(), &input[25..])
             .expect("Violation not found");
-        let weakness = find_contiguous_sum(&input, sum).expect("Weakness not found");
-        if weakness.is_empty() {
-            0
-        } else {
-            weakness.iter().min().unwrap() + weakness.iter().max().unwrap()
-        }
+        find_contiguous_sum(&input, sum)
+            .expect("Weakness not found")
+            .into_iter()
+            .minmax()
+            .into_option()
+            .map(|(min, max)| min + max)
+            .unwrap_or_default()
     }
 }
 
