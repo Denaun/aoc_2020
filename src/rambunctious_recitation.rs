@@ -1,7 +1,6 @@
 //! Day 15
 
 use std::collections::HashMap;
-use std::str::FromStr;
 
 fn speak_numbers(initial: Vec<usize>) -> impl Iterator<Item = usize> {
     (0..).scan(
@@ -24,8 +23,12 @@ fn speak_numbers(initial: Vec<usize>) -> impl Iterator<Item = usize> {
     )
 }
 
-fn parse_input<T: FromStr>(text: &str) -> Result<Vec<T>, <T as FromStr>::Err> {
-    text.split(',').map(str::parse).collect()
+mod parsers {
+    use std::str::FromStr;
+
+    pub fn input<T: FromStr>(text: &str) -> Result<Vec<T>, <T as FromStr>::Err> {
+        text.split(',').map(str::parse).collect()
+    }
 }
 
 trait Solution {
@@ -34,12 +37,12 @@ trait Solution {
 }
 impl Solution for str {
     fn part_1(&self) -> usize {
-        speak_numbers(parse_input(self).expect("Failed to parse the input"))
+        speak_numbers(parsers::input(self).expect("Failed to parse the input"))
             .nth(2019)
             .expect("Empty input")
     }
     fn part_2(&self) -> usize {
-        speak_numbers(parse_input(self).expect("Failed to parse the input"))
+        speak_numbers(parsers::input(self).expect("Failed to parse the input"))
             .nth(30_000_000 - 1)
             .expect("Empty input")
     }

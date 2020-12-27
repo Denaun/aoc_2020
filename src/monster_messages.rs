@@ -1,25 +1,21 @@
 //! Day 19
 
-use crate::docking_data::parse_integer;
+use std::collections::HashMap;
+
 use itertools::Itertools;
 use nom::{
-    branch::alt,
-    bytes::complete::tag,
-    character::complete::{alpha1, anychar, char, line_ending},
+    character::complete::char,
     combinator::{all_consuming, map},
     error::{Error, ErrorKind},
-    multi::{separated_list0, separated_list1},
-    sequence::{delimited, separated_pair},
     Err, IResult,
 };
-use std::collections::HashMap;
 
 type Parser = Box<dyn FnMut(&str) -> IResult<&str, ()>>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct RuleId(usize);
+pub struct RuleId(usize);
 #[derive(Debug, Clone, PartialEq)]
-enum Rule {
+pub enum Rule {
     Char(char),
     Composite(Vec<Vec<RuleId>>),
 }
@@ -116,30 +112,49 @@ fn apply_part_2(mut rules: HashMap<RuleId, Rule>) -> HashMap<RuleId, Rule> {
     rules
 }
 
-fn parse_input(s: &str) -> IResult<&str, (HashMap<RuleId, Rule>, Vec<&str>)> {
-    let (s, rules) = parse_rules(s)?;
-    let (s, _) = line_ending(s)?;
-    let (s, _) = line_ending(s)?;
-    let (s, messages) = separated_list1(line_ending, alpha1)(s)?;
-    Ok((s, (rules, messages)))
-}
-fn parse_rules(s: &str) -> IResult<&str, HashMap<RuleId, Rule>> {
-    let parse_id = |s| map(parse_integer, |i| RuleId(i))(s);
-    let (s, rules) = separated_list0(
-        line_ending,
-        separated_pair(
-            parse_id,
-            tag(": "),
-            alt((
-                map(delimited(char('"'), anychar, char('"')), |c| Rule::Char(c)),
-                map(
-                    separated_list1(tag(" | "), separated_list1(char(' '), parse_id)),
-                    |seq| Rule::Composite(seq),
-                ),
-            )),
-        ),
-    )(s)?;
-    Ok((s, rules.into_iter().collect()))
+mod parsers {
+    use nom::{
+        branch::alt,
+        bytes::complete::tag,
+        character::complete::{alpha1, anychar, char, line_ending},
+        combinator::map,
+        error::Error,
+        multi::{separated_list0, separated_list1},
+        sequence::{delimited, separated_pair},
+        IResult,
+    };
+
+    use crate::parsers::*;
+
+    use super::*;
+
+    pub fn input(s: &str) -> Result<(HashMap<RuleId, Rule>, Vec<&str>), Error<&str>> {
+        finished_parser(separated_pair(
+            rules,
+            double_line_ending,
+            separated_list1(line_ending, alpha1),
+        ))(s)
+    }
+    pub fn rules(s: &str) -> IResult<&str, HashMap<RuleId, Rule>> {
+        let (s, rules) = separated_list0(
+            line_ending,
+            separated_pair(
+                id,
+                tag(": "),
+                alt((
+                    map(delimited(char('"'), anychar, char('"')), |c| Rule::Char(c)),
+                    map(
+                        separated_list1(tag(" | "), separated_list1(char(' '), id)),
+                        |seq| Rule::Composite(seq),
+                    ),
+                )),
+            ),
+        )(s)?;
+        Ok((s, rules.into_iter().collect()))
+    }
+    fn id(s: &str) -> IResult<&str, RuleId> {
+        map(integer, |i| RuleId(i))(s)
+    }
 }
 
 trait Solution {
@@ -148,7 +163,7 @@ trait Solution {
 }
 impl Solution for str {
     fn part_1(&self) -> usize {
-        let (rules, messages) = parse_input(self).expect("Failed to parse the input").1;
+        let (rules, messages) = parsers::input(self).expect("Failed to parse the input");
         let mut rule_zero =
             all_consuming(resolve(&rules, &RuleId(0)).expect("Failed to resolve rule 0"));
         messages
@@ -157,7 +172,7 @@ impl Solution for str {
             .count()
     }
     fn part_2(&self) -> usize {
-        let (rules, messages) = parse_input(self).expect("Failed to parse the input").1;
+        let (rules, messages) = parsers::input(self).expect("Failed to parse the input");
         let rules = apply_part_2(rules);
         let mut rule_zero =
             all_consuming(resolve(&rules, &RuleId(0)).expect("Failed to resolve rule 0"));
@@ -177,7 +192,7 @@ mod tests {
     #[test]
     fn example_input() {
         assert_eq!(
-            parse_input(
+            parsers::input(
                 "\
 0: 4 1 5
 1: 2 3 | 3 2
@@ -193,49 +208,46 @@ aaabbb
 aaaabbb"
             ),
             Ok((
-                "",
-                (
-                    [
-                        (
-                            RuleId(0),
-                            Rule::Composite(vec![vec![RuleId(4), RuleId(1), RuleId(5)]])
-                        ),
-                        (
-                            RuleId(1),
-                            Rule::Composite(vec![
-                                vec![RuleId(2), RuleId(3)],
-                                vec![RuleId(3), RuleId(2)]
-                            ])
-                        ),
-                        (
-                            RuleId(2),
-                            Rule::Composite(vec![
-                                vec![RuleId(4), RuleId(4)],
-                                vec![RuleId(5), RuleId(5)]
-                            ])
-                        ),
-                        (
-                            RuleId(3),
-                            Rule::Composite(vec![
-                                vec![RuleId(4), RuleId(5)],
-                                vec![RuleId(5), RuleId(4)]
-                            ])
-                        ),
-                        (RuleId(4), Rule::Char('a')),
-                        (RuleId(5), Rule::Char('b')),
-                    ]
-                    .iter()
-                    .cloned()
-                    .collect(),
-                    vec!["ababbb", "bababa", "abbbab", "aaabbb", "aaaabbb"]
-                )
+                [
+                    (
+                        RuleId(0),
+                        Rule::Composite(vec![vec![RuleId(4), RuleId(1), RuleId(5)]])
+                    ),
+                    (
+                        RuleId(1),
+                        Rule::Composite(vec![
+                            vec![RuleId(2), RuleId(3)],
+                            vec![RuleId(3), RuleId(2)]
+                        ])
+                    ),
+                    (
+                        RuleId(2),
+                        Rule::Composite(vec![
+                            vec![RuleId(4), RuleId(4)],
+                            vec![RuleId(5), RuleId(5)]
+                        ])
+                    ),
+                    (
+                        RuleId(3),
+                        Rule::Composite(vec![
+                            vec![RuleId(4), RuleId(5)],
+                            vec![RuleId(5), RuleId(4)]
+                        ])
+                    ),
+                    (RuleId(4), Rule::Char('a')),
+                    (RuleId(5), Rule::Char('b')),
+                ]
+                .iter()
+                .cloned()
+                .collect(),
+                vec!["ababbb", "bababa", "abbbab", "aaabbb", "aaaabbb"]
             ))
         );
     }
 
     #[test]
     fn example_1() {
-        let rules = parse_rules(
+        let rules = parsers::rules(
             "\
 0: 4 1 5
 1: 2 3 | 3 2
@@ -261,7 +273,7 @@ aaaabbb"
 
     #[test]
     fn example_2() {
-        let (rules, messages) = parse_input(
+        let (rules, messages) = parsers::input(
             "\
 42: 9 14 | 10 1
 9: 14 27 | 1 26
@@ -311,8 +323,7 @@ aaaabbaabbaaaaaaabbbabbbaaabbaabaaa
 babaaabbbaaabaababbaabababaaab
 aabbbbbaabbbaaaaaabbbbbababaaaaabbaaabba",
         )
-        .unwrap()
-        .1;
+        .unwrap();
         let mut rule_zero = all_consuming(resolve(&rules, &RuleId(0)).unwrap());
         assert_equal(
             messages.iter().filter(|message| rule_zero(message).is_ok()),

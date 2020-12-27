@@ -1,7 +1,7 @@
 //! Day 1
 
 use num_traits::{CheckedSub, Zero};
-use std::{ops::Mul, str::FromStr};
+use std::ops::Mul;
 
 pub fn find_sum<T: Zero + CheckedSub + Copy>(values: &[T], sum: T, n: usize) -> Option<Vec<T>> {
     if n == 0 {
@@ -26,8 +26,8 @@ pub fn find_sum<T: Zero + CheckedSub + Copy>(values: &[T], sum: T, n: usize) -> 
     })
 }
 
-fn parse_input<T: FromStr>(text: &str) -> Result<Vec<T>, <T as FromStr>::Err> {
-    text.lines().map(str::parse).collect()
+mod parsers {
+    pub use crate::parsers::number_list as input;
 }
 
 trait Solution {
@@ -37,7 +37,7 @@ trait Solution {
 impl Solution for str {
     fn part_1(&self) -> u32 {
         find_sum(
-            &parse_input(self).expect("Failed to parse the input"),
+            &parsers::input(self).expect("Failed to parse the input"),
             2020,
             2,
         )
@@ -47,7 +47,7 @@ impl Solution for str {
     }
     fn part_2(&self) -> u32 {
         find_sum(
-            &parse_input(self).expect("Failed to parse the input"),
+            &parsers::input(self).expect("Failed to parse the input"),
             2020,
             3,
         )
@@ -64,7 +64,7 @@ mod tests {
     #[test]
     fn example_input() {
         assert_eq!(
-            parse_input(
+            parsers::input(
                 "\
 1721
 979

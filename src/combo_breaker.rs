@@ -1,9 +1,6 @@
 //! Day 25
 
 use itertools::iterate;
-use nom::{character::complete::line_ending, sequence::separated_pair, IResult};
-
-use crate::docking_data::parse_integer;
 
 const SUBJECT_NUMBER: u64 = 7;
 const INITIAL_KEY: u64 = 1;
@@ -21,8 +18,14 @@ fn find_loop_size(public_key: u64) -> usize {
         .unwrap()
 }
 
-fn parse_input(s: &str) -> IResult<&str, (u64, u64)> {
-    separated_pair(parse_integer, line_ending, parse_integer)(s)
+mod parsers {
+    use nom::{character::complete::line_ending, error::Error, sequence::separated_pair};
+
+    use crate::parsers::{finished_parser, integer};
+
+    pub fn input(s: &str) -> Result<(u64, u64), Error<&str>> {
+        finished_parser(separated_pair(integer, line_ending, integer))(s)
+    }
 }
 
 trait Solution {
@@ -30,7 +33,7 @@ trait Solution {
 }
 impl Solution for str {
     fn part_1(&self) -> u64 {
-        let (card, door) = parse_input(self).expect("Failed to parse the input").1;
+        let (card, door) = parsers::input(self).expect("Failed to parse the input");
         let loop_size = find_loop_size(card);
         transformations(door).nth(loop_size).unwrap()
     }

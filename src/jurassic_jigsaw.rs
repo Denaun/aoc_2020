@@ -1,18 +1,9 @@
 //! Day 20
 
-use crate::docking_data::parse_integer;
+use std::collections::HashSet;
+
 use bitvec::prelude::*;
 use itertools::{iterate, Itertools};
-use nom::{
-    branch::alt,
-    bytes::complete::tag,
-    character::complete::{char, line_ending},
-    combinator::{map, value},
-    multi::{many1, separated_list1},
-    sequence::{delimited, pair, separated_pair},
-    IResult,
-};
-use std::collections::HashSet;
 
 const SEA_MONSTER: [(usize, usize); 15] = [
     (0, 18),
@@ -33,7 +24,7 @@ const SEA_MONSTER: [(usize, usize); 15] = [
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct Tile {
+pub struct Tile {
     pub id: usize,
     pub data: Vec<BitVec>,
     sides: HashSet<BitVec>,
@@ -187,7 +178,7 @@ impl Tile {
 }
 
 #[derive(Debug, Clone, Copy)]
-enum Orientation {
+pub enum Orientation {
     Top,
     Bottom,
     Left,
@@ -251,27 +242,33 @@ fn build_line<'a>(
     .flatten()
 }
 
-fn parse_input(s: &str) -> IResult<&str, Vec<Tile>> {
-    separated_list1(
-        pair(line_ending, line_ending),
-        map(
-            separated_pair(
-                delimited(tag("Tile "), parse_integer, char(':')),
-                line_ending,
-                parse_tile_data,
+mod parsers {
+    use nom::{
+        bytes::complete::tag,
+        character::complete::{char, line_ending},
+        combinator::map,
+        error::Error,
+        multi::separated_list1,
+        sequence::{delimited, separated_pair},
+    };
+
+    use crate::parsers::{bw_image, double_line_ending, finished_parser, integer};
+
+    use super::Tile;
+
+    pub fn input(s: &str) -> Result<Vec<Tile>, Error<&str>> {
+        finished_parser(separated_list1(
+            double_line_ending,
+            map(
+                separated_pair(
+                    delimited(tag("Tile "), integer, char(':')),
+                    line_ending,
+                    bw_image,
+                ),
+                |(id, data)| Tile::new(id, data),
             ),
-            |(id, data)| Tile::new(id, data),
-        ),
-    )(s)
-}
-fn parse_tile_data(s: &str) -> IResult<&str, Vec<BitVec>> {
-    separated_list1(
-        line_ending,
-        map(
-            many1(alt((value(true, char('#')), value(false, char('.'))))),
-            |bits| bits.into_iter().collect(),
-        ),
-    )(s)
+        ))(s)
+    }
 }
 
 trait Solution {
@@ -280,11 +277,11 @@ trait Solution {
 }
 impl Solution for str {
     fn part_1(&self) -> usize {
-        let tiles = parse_input(self).expect("Failed to parse the input").1;
+        let tiles = parsers::input(self).expect("Failed to parse the input");
         corners(&tiles).map(|tile| tile.id).product()
     }
     fn part_2(&self) -> usize {
-        let tiles = parse_input(self).expect("Failed to parse the input").1;
+        let tiles = parsers::input(self).expect("Failed to parse the input");
         let image = Tile::from_image(
             0,
             build_image(&tiles).expect("Failed to build the full image"),
@@ -424,154 +421,151 @@ Tile 3079:
     #[test]
     fn example_input() {
         assert_eq!(
-            parse_input(EXAMPLE_INPUT),
-            Ok((
-                "",
-                vec![
-                    Tile::new(
-                        2311,
-                        vec![
-                            bitvec![0, 0, 1, 1, 0, 1, 0, 0, 1, 0,],
-                            bitvec![1, 1, 0, 0, 1, 0, 0, 0, 0, 0,],
-                            bitvec![1, 0, 0, 0, 1, 1, 0, 0, 1, 0,],
-                            bitvec![1, 1, 1, 1, 0, 1, 0, 0, 0, 1,],
-                            bitvec![1, 1, 0, 1, 1, 0, 1, 1, 1, 0,],
-                            bitvec![1, 1, 0, 0, 0, 1, 0, 1, 1, 1,],
-                            bitvec![0, 1, 0, 1, 0, 1, 0, 0, 1, 1,],
-                            bitvec![0, 0, 1, 0, 0, 0, 0, 1, 0, 0,],
-                            bitvec![1, 1, 1, 0, 0, 0, 1, 0, 1, 0,],
-                            bitvec![0, 0, 1, 1, 1, 0, 0, 1, 1, 1,],
-                        ]
-                    ),
-                    Tile::new(
-                        1951,
-                        vec![
-                            bitvec![1, 0, 1, 1, 0, 0, 0, 1, 1, 0,],
-                            bitvec![1, 0, 1, 1, 1, 1, 0, 0, 0, 1,],
-                            bitvec![0, 0, 0, 0, 0, 1, 0, 0, 1, 1,],
-                            bitvec![1, 0, 0, 0, 1, 1, 1, 1, 1, 1,],
-                            bitvec![0, 1, 1, 0, 1, 0, 0, 0, 0, 1,],
-                            bitvec![0, 1, 1, 1, 0, 1, 1, 1, 1, 1,],
-                            bitvec![1, 1, 1, 0, 1, 1, 0, 1, 1, 0,],
-                            bitvec![0, 1, 1, 1, 0, 0, 0, 0, 1, 0,],
-                            bitvec![0, 0, 1, 0, 1, 0, 0, 1, 0, 1,],
-                            bitvec![1, 0, 0, 0, 1, 1, 0, 1, 0, 0,],
-                        ]
-                    ),
-                    Tile::new(
-                        1171,
-                        vec![
-                            bitvec![1, 1, 1, 1, 0, 0, 0, 1, 1, 0,],
-                            bitvec![1, 0, 0, 1, 1, 0, 1, 0, 0, 1,],
-                            bitvec![1, 1, 0, 1, 0, 0, 1, 0, 1, 0,],
-                            bitvec![0, 1, 1, 1, 0, 1, 1, 1, 1, 0,],
-                            bitvec![0, 0, 1, 1, 1, 0, 1, 1, 1, 1,],
-                            bitvec![0, 1, 1, 0, 0, 0, 0, 1, 1, 0,],
-                            bitvec![0, 1, 0, 0, 0, 1, 1, 1, 1, 0,],
-                            bitvec![1, 0, 1, 1, 0, 1, 1, 1, 1, 0,],
-                            bitvec![1, 1, 1, 1, 0, 0, 1, 0, 0, 0,],
-                            bitvec![0, 0, 0, 0, 0, 1, 1, 0, 0, 0,],
-                        ]
-                    ),
-                    Tile::new(
-                        1427,
-                        vec![
-                            bitvec![1, 1, 1, 0, 1, 1, 0, 1, 0, 0,],
-                            bitvec![0, 1, 0, 0, 1, 0, 1, 1, 0, 0,],
-                            bitvec![0, 1, 0, 1, 1, 0, 1, 0, 0, 1,],
-                            bitvec![1, 0, 1, 0, 1, 0, 1, 1, 0, 1,],
-                            bitvec![0, 0, 0, 0, 1, 0, 0, 0, 1, 1,],
-                            bitvec![0, 0, 0, 1, 1, 0, 0, 1, 1, 0,],
-                            bitvec![0, 0, 0, 1, 0, 1, 1, 1, 1, 1,],
-                            bitvec![0, 1, 0, 1, 1, 1, 1, 0, 1, 0,],
-                            bitvec![0, 0, 1, 0, 0, 1, 1, 1, 0, 1,],
-                            bitvec![0, 0, 1, 1, 0, 1, 0, 0, 1, 0,],
-                        ]
-                    ),
-                    Tile::new(
-                        1489,
-                        vec![
-                            bitvec![1, 1, 0, 1, 0, 1, 0, 0, 0, 0,],
-                            bitvec![0, 0, 1, 1, 0, 0, 0, 1, 0, 0,],
-                            bitvec![0, 1, 1, 0, 0, 1, 1, 0, 0, 0,],
-                            bitvec![0, 0, 1, 0, 0, 0, 1, 0, 0, 0,],
-                            bitvec![1, 1, 1, 1, 1, 0, 0, 0, 1, 0,],
-                            bitvec![1, 0, 0, 1, 0, 1, 0, 1, 0, 1,],
-                            bitvec![0, 0, 0, 1, 0, 1, 0, 1, 0, 0,],
-                            bitvec![1, 1, 0, 1, 0, 0, 0, 1, 1, 0,],
-                            bitvec![0, 0, 1, 1, 0, 1, 1, 0, 1, 1,],
-                            bitvec![1, 1, 1, 0, 1, 1, 0, 1, 0, 0,],
-                        ]
-                    ),
-                    Tile::new(
-                        2473,
-                        vec![
-                            bitvec![1, 0, 0, 0, 0, 1, 1, 1, 1, 0,],
-                            bitvec![1, 0, 0, 1, 0, 1, 1, 0, 0, 0,],
-                            bitvec![1, 0, 1, 1, 0, 0, 1, 0, 0, 0,],
-                            bitvec![1, 1, 1, 1, 1, 1, 0, 1, 0, 1,],
-                            bitvec![0, 1, 0, 0, 0, 1, 0, 1, 0, 1,],
-                            bitvec![0, 1, 1, 1, 1, 1, 1, 1, 1, 1,],
-                            bitvec![0, 1, 1, 1, 0, 1, 0, 0, 1, 0,],
-                            bitvec![1, 1, 1, 1, 1, 1, 1, 1, 0, 1,],
-                            bitvec![1, 1, 0, 0, 0, 1, 1, 0, 1, 0,],
-                            bitvec![0, 0, 1, 1, 1, 0, 1, 0, 1, 0,],
-                        ]
-                    ),
-                    Tile::new(
-                        2971,
-                        vec![
-                            bitvec![0, 0, 1, 0, 1, 0, 0, 0, 0, 1,],
-                            bitvec![1, 0, 0, 0, 1, 1, 1, 0, 0, 0,],
-                            bitvec![1, 0, 1, 0, 1, 1, 1, 0, 0, 0,],
-                            bitvec![1, 1, 0, 1, 1, 0, 0, 1, 0, 0,],
-                            bitvec![0, 1, 1, 1, 1, 1, 0, 0, 1, 1,],
-                            bitvec![0, 1, 0, 0, 1, 1, 1, 1, 0, 1,],
-                            bitvec![1, 0, 0, 1, 0, 1, 0, 0, 1, 0,],
-                            bitvec![0, 0, 1, 1, 1, 1, 0, 1, 1, 1,],
-                            bitvec![0, 0, 1, 0, 1, 0, 1, 1, 1, 0,],
-                            bitvec![0, 0, 0, 1, 0, 1, 0, 1, 0, 1,],
-                        ]
-                    ),
-                    Tile::new(
-                        2729,
-                        vec![
-                            bitvec![0, 0, 0, 1, 0, 1, 0, 1, 0, 1,],
-                            bitvec![1, 1, 1, 1, 0, 1, 0, 0, 0, 0,],
-                            bitvec![0, 0, 1, 0, 1, 0, 0, 0, 0, 0,],
-                            bitvec![0, 0, 0, 0, 1, 0, 0, 1, 0, 1,],
-                            bitvec![0, 1, 1, 0, 0, 1, 1, 0, 1, 0,],
-                            bitvec![0, 1, 0, 1, 1, 1, 1, 0, 0, 0,],
-                            bitvec![1, 1, 1, 1, 0, 1, 0, 1, 0, 0,],
-                            bitvec![1, 1, 0, 1, 1, 1, 1, 0, 0, 0,],
-                            bitvec![1, 1, 0, 0, 1, 0, 1, 1, 0, 0,],
-                            bitvec![1, 0, 1, 1, 0, 0, 0, 1, 1, 0,],
-                        ]
-                    ),
-                    Tile::new(
-                        3079,
-                        vec![
-                            bitvec![1, 0, 1, 0, 1, 1, 1, 1, 1, 0,],
-                            bitvec![0, 1, 0, 0, 1, 1, 1, 1, 1, 1,],
-                            bitvec![0, 0, 1, 0, 0, 0, 0, 0, 0, 0,],
-                            bitvec![1, 1, 1, 1, 1, 1, 0, 0, 0, 0,],
-                            bitvec![1, 1, 1, 1, 0, 1, 0, 0, 1, 0,],
-                            bitvec![0, 1, 0, 0, 0, 1, 0, 1, 1, 0,],
-                            bitvec![1, 0, 1, 1, 1, 1, 1, 0, 1, 1,],
-                            bitvec![0, 0, 1, 0, 1, 1, 1, 0, 0, 0,],
-                            bitvec![0, 0, 1, 0, 0, 0, 0, 0, 0, 0,],
-                            bitvec![0, 0, 1, 0, 1, 1, 1, 0, 0, 0,],
-                        ]
-                    )
-                ]
-            ))
+            parsers::input(EXAMPLE_INPUT),
+            Ok(vec![
+                Tile::new(
+                    2311,
+                    vec![
+                        bitvec![0, 0, 1, 1, 0, 1, 0, 0, 1, 0,],
+                        bitvec![1, 1, 0, 0, 1, 0, 0, 0, 0, 0,],
+                        bitvec![1, 0, 0, 0, 1, 1, 0, 0, 1, 0,],
+                        bitvec![1, 1, 1, 1, 0, 1, 0, 0, 0, 1,],
+                        bitvec![1, 1, 0, 1, 1, 0, 1, 1, 1, 0,],
+                        bitvec![1, 1, 0, 0, 0, 1, 0, 1, 1, 1,],
+                        bitvec![0, 1, 0, 1, 0, 1, 0, 0, 1, 1,],
+                        bitvec![0, 0, 1, 0, 0, 0, 0, 1, 0, 0,],
+                        bitvec![1, 1, 1, 0, 0, 0, 1, 0, 1, 0,],
+                        bitvec![0, 0, 1, 1, 1, 0, 0, 1, 1, 1,],
+                    ]
+                ),
+                Tile::new(
+                    1951,
+                    vec![
+                        bitvec![1, 0, 1, 1, 0, 0, 0, 1, 1, 0,],
+                        bitvec![1, 0, 1, 1, 1, 1, 0, 0, 0, 1,],
+                        bitvec![0, 0, 0, 0, 0, 1, 0, 0, 1, 1,],
+                        bitvec![1, 0, 0, 0, 1, 1, 1, 1, 1, 1,],
+                        bitvec![0, 1, 1, 0, 1, 0, 0, 0, 0, 1,],
+                        bitvec![0, 1, 1, 1, 0, 1, 1, 1, 1, 1,],
+                        bitvec![1, 1, 1, 0, 1, 1, 0, 1, 1, 0,],
+                        bitvec![0, 1, 1, 1, 0, 0, 0, 0, 1, 0,],
+                        bitvec![0, 0, 1, 0, 1, 0, 0, 1, 0, 1,],
+                        bitvec![1, 0, 0, 0, 1, 1, 0, 1, 0, 0,],
+                    ]
+                ),
+                Tile::new(
+                    1171,
+                    vec![
+                        bitvec![1, 1, 1, 1, 0, 0, 0, 1, 1, 0,],
+                        bitvec![1, 0, 0, 1, 1, 0, 1, 0, 0, 1,],
+                        bitvec![1, 1, 0, 1, 0, 0, 1, 0, 1, 0,],
+                        bitvec![0, 1, 1, 1, 0, 1, 1, 1, 1, 0,],
+                        bitvec![0, 0, 1, 1, 1, 0, 1, 1, 1, 1,],
+                        bitvec![0, 1, 1, 0, 0, 0, 0, 1, 1, 0,],
+                        bitvec![0, 1, 0, 0, 0, 1, 1, 1, 1, 0,],
+                        bitvec![1, 0, 1, 1, 0, 1, 1, 1, 1, 0,],
+                        bitvec![1, 1, 1, 1, 0, 0, 1, 0, 0, 0,],
+                        bitvec![0, 0, 0, 0, 0, 1, 1, 0, 0, 0,],
+                    ]
+                ),
+                Tile::new(
+                    1427,
+                    vec![
+                        bitvec![1, 1, 1, 0, 1, 1, 0, 1, 0, 0,],
+                        bitvec![0, 1, 0, 0, 1, 0, 1, 1, 0, 0,],
+                        bitvec![0, 1, 0, 1, 1, 0, 1, 0, 0, 1,],
+                        bitvec![1, 0, 1, 0, 1, 0, 1, 1, 0, 1,],
+                        bitvec![0, 0, 0, 0, 1, 0, 0, 0, 1, 1,],
+                        bitvec![0, 0, 0, 1, 1, 0, 0, 1, 1, 0,],
+                        bitvec![0, 0, 0, 1, 0, 1, 1, 1, 1, 1,],
+                        bitvec![0, 1, 0, 1, 1, 1, 1, 0, 1, 0,],
+                        bitvec![0, 0, 1, 0, 0, 1, 1, 1, 0, 1,],
+                        bitvec![0, 0, 1, 1, 0, 1, 0, 0, 1, 0,],
+                    ]
+                ),
+                Tile::new(
+                    1489,
+                    vec![
+                        bitvec![1, 1, 0, 1, 0, 1, 0, 0, 0, 0,],
+                        bitvec![0, 0, 1, 1, 0, 0, 0, 1, 0, 0,],
+                        bitvec![0, 1, 1, 0, 0, 1, 1, 0, 0, 0,],
+                        bitvec![0, 0, 1, 0, 0, 0, 1, 0, 0, 0,],
+                        bitvec![1, 1, 1, 1, 1, 0, 0, 0, 1, 0,],
+                        bitvec![1, 0, 0, 1, 0, 1, 0, 1, 0, 1,],
+                        bitvec![0, 0, 0, 1, 0, 1, 0, 1, 0, 0,],
+                        bitvec![1, 1, 0, 1, 0, 0, 0, 1, 1, 0,],
+                        bitvec![0, 0, 1, 1, 0, 1, 1, 0, 1, 1,],
+                        bitvec![1, 1, 1, 0, 1, 1, 0, 1, 0, 0,],
+                    ]
+                ),
+                Tile::new(
+                    2473,
+                    vec![
+                        bitvec![1, 0, 0, 0, 0, 1, 1, 1, 1, 0,],
+                        bitvec![1, 0, 0, 1, 0, 1, 1, 0, 0, 0,],
+                        bitvec![1, 0, 1, 1, 0, 0, 1, 0, 0, 0,],
+                        bitvec![1, 1, 1, 1, 1, 1, 0, 1, 0, 1,],
+                        bitvec![0, 1, 0, 0, 0, 1, 0, 1, 0, 1,],
+                        bitvec![0, 1, 1, 1, 1, 1, 1, 1, 1, 1,],
+                        bitvec![0, 1, 1, 1, 0, 1, 0, 0, 1, 0,],
+                        bitvec![1, 1, 1, 1, 1, 1, 1, 1, 0, 1,],
+                        bitvec![1, 1, 0, 0, 0, 1, 1, 0, 1, 0,],
+                        bitvec![0, 0, 1, 1, 1, 0, 1, 0, 1, 0,],
+                    ]
+                ),
+                Tile::new(
+                    2971,
+                    vec![
+                        bitvec![0, 0, 1, 0, 1, 0, 0, 0, 0, 1,],
+                        bitvec![1, 0, 0, 0, 1, 1, 1, 0, 0, 0,],
+                        bitvec![1, 0, 1, 0, 1, 1, 1, 0, 0, 0,],
+                        bitvec![1, 1, 0, 1, 1, 0, 0, 1, 0, 0,],
+                        bitvec![0, 1, 1, 1, 1, 1, 0, 0, 1, 1,],
+                        bitvec![0, 1, 0, 0, 1, 1, 1, 1, 0, 1,],
+                        bitvec![1, 0, 0, 1, 0, 1, 0, 0, 1, 0,],
+                        bitvec![0, 0, 1, 1, 1, 1, 0, 1, 1, 1,],
+                        bitvec![0, 0, 1, 0, 1, 0, 1, 1, 1, 0,],
+                        bitvec![0, 0, 0, 1, 0, 1, 0, 1, 0, 1,],
+                    ]
+                ),
+                Tile::new(
+                    2729,
+                    vec![
+                        bitvec![0, 0, 0, 1, 0, 1, 0, 1, 0, 1,],
+                        bitvec![1, 1, 1, 1, 0, 1, 0, 0, 0, 0,],
+                        bitvec![0, 0, 1, 0, 1, 0, 0, 0, 0, 0,],
+                        bitvec![0, 0, 0, 0, 1, 0, 0, 1, 0, 1,],
+                        bitvec![0, 1, 1, 0, 0, 1, 1, 0, 1, 0,],
+                        bitvec![0, 1, 0, 1, 1, 1, 1, 0, 0, 0,],
+                        bitvec![1, 1, 1, 1, 0, 1, 0, 1, 0, 0,],
+                        bitvec![1, 1, 0, 1, 1, 1, 1, 0, 0, 0,],
+                        bitvec![1, 1, 0, 0, 1, 0, 1, 1, 0, 0,],
+                        bitvec![1, 0, 1, 1, 0, 0, 0, 1, 1, 0,],
+                    ]
+                ),
+                Tile::new(
+                    3079,
+                    vec![
+                        bitvec![1, 0, 1, 0, 1, 1, 1, 1, 1, 0,],
+                        bitvec![0, 1, 0, 0, 1, 1, 1, 1, 1, 1,],
+                        bitvec![0, 0, 1, 0, 0, 0, 0, 0, 0, 0,],
+                        bitvec![1, 1, 1, 1, 1, 1, 0, 0, 0, 0,],
+                        bitvec![1, 1, 1, 1, 0, 1, 0, 0, 1, 0,],
+                        bitvec![0, 1, 0, 0, 0, 1, 0, 1, 1, 0,],
+                        bitvec![1, 0, 1, 1, 1, 1, 1, 0, 1, 1,],
+                        bitvec![0, 0, 1, 0, 1, 1, 1, 0, 0, 0,],
+                        bitvec![0, 0, 1, 0, 0, 0, 0, 0, 0, 0,],
+                        bitvec![0, 0, 1, 0, 1, 1, 1, 0, 0, 0,],
+                    ]
+                )
+            ])
         );
     }
 
     #[test]
     fn example_1() {
         assert_equal(
-            corners(&parse_input(EXAMPLE_INPUT).unwrap().1)
+            corners(&parsers::input(EXAMPLE_INPUT).unwrap())
                 .map(|tile| &tile.id)
                 .sorted(),
             &[1171, 1951, 2971, 3079],
@@ -587,7 +581,7 @@ Tile 3079:
     fn example_2() {
         let image = Tile::from_image(
             0,
-            build_image(&parse_input(EXAMPLE_INPUT).unwrap().1).unwrap(),
+            build_image(&parsers::input(EXAMPLE_INPUT).unwrap()).unwrap(),
         )
         .orient_to_side(
             &bits![0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1,],

@@ -1,15 +1,5 @@
 //! Day 8
 
-use nom::{
-    branch::alt,
-    bytes::complete::tag,
-    character::complete::{char, digit1, line_ending, one_of},
-    combinator::{all_consuming, map_res, recognize, value},
-    multi::separated_list1,
-    sequence::{preceded, separated_pair},
-    IResult,
-};
-
 pub type Instruction = (Op, i32);
 pub type BootCode = Vec<Instruction>;
 
@@ -84,21 +74,36 @@ fn fix_loop(runner: Runner) -> Option<Runner> {
     None
 }
 
-fn parse_instruction(s: &str) -> IResult<&str, Instruction> {
-    separated_pair(
-        alt((
-            value(Op::Nop, tag("nop")),
-            value(Op::Acc, tag("acc")),
-            value(Op::Jmp, tag("jmp")),
-        )),
-        char(' '),
-        map_res(recognize(preceded(one_of("+-"), digit1)), |s: &str| {
-            s.parse()
-        }),
-    )(s)
-}
-fn parse_input(s: &str) -> IResult<&str, BootCode> {
-    all_consuming(separated_list1(line_ending, parse_instruction))(s)
+mod parsers {
+    use nom::{
+        branch::alt,
+        bytes::complete::tag,
+        character::complete::{char, line_ending},
+        combinator::value,
+        error::Error,
+        multi::separated_list1,
+        sequence::separated_pair,
+        IResult,
+    };
+
+    use crate::parsers::{finished_parser, signed_integer};
+
+    use super::{BootCode, Instruction, Op};
+
+    pub fn input(s: &str) -> Result<BootCode, Error<&str>> {
+        finished_parser(separated_list1(line_ending, instruction))(s)
+    }
+    fn instruction(s: &str) -> IResult<&str, Instruction> {
+        separated_pair(
+            alt((
+                value(Op::Nop, tag("nop")),
+                value(Op::Acc, tag("acc")),
+                value(Op::Jmp, tag("jmp")),
+            )),
+            char(' '),
+            signed_integer,
+        )(s)
+    }
 }
 
 trait Solution {
@@ -107,7 +112,7 @@ trait Solution {
 }
 impl Solution for str {
     fn part_1(&self) -> i32 {
-        let mut runner = Runner::new(parse_input(self).expect("Failed to parse the input").1);
+        let mut runner = Runner::new(parsers::input(self).expect("Failed to parse the input"));
         find_loop(&mut runner);
         if runner.is_finished() {
             panic!("No loop found");
@@ -116,7 +121,7 @@ impl Solution for str {
     }
     fn part_2(&self) -> i32 {
         if let Some(runner) = fix_loop(Runner::new(
-            parse_input(self).expect("Failed to parse the input").1,
+            parsers::input(self).expect("Failed to parse the input"),
         )) {
             runner.acc
         } else {
@@ -132,7 +137,7 @@ mod tests {
     #[test]
     fn example_input() {
         assert_eq!(
-            parse_input(
+            parsers::input(
                 "\
 nop +0
 acc +1
@@ -144,20 +149,17 @@ acc +1
 jmp -4
 acc +6"
             ),
-            Ok((
-                "",
-                vec![
-                    (Op::Nop, 0),
-                    (Op::Acc, 1),
-                    (Op::Jmp, 4),
-                    (Op::Acc, 3),
-                    (Op::Jmp, -3),
-                    (Op::Acc, -99),
-                    (Op::Acc, 1),
-                    (Op::Jmp, -4),
-                    (Op::Acc, 6),
-                ]
-            ))
+            Ok(vec![
+                (Op::Nop, 0),
+                (Op::Acc, 1),
+                (Op::Jmp, 4),
+                (Op::Acc, 3),
+                (Op::Jmp, -3),
+                (Op::Acc, -99),
+                (Op::Acc, 1),
+                (Op::Jmp, -4),
+                (Op::Acc, 6),
+            ])
         )
     }
 

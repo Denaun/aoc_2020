@@ -1,19 +1,6 @@
 //! Day 13
 
-use nom::{
-    branch::alt,
-    character::complete::{char, digit1, line_ending},
-    combinator::{all_consuming, map, map_res, value},
-    multi::separated_list1,
-    sequence::separated_pair,
-    IResult,
-};
-use std::{
-    ops::{Rem, Sub},
-    str::FromStr,
-};
-
-use crate::docking_data::parse_integer;
+use std::ops::{Rem, Sub};
 
 fn wait_time<T>(from: T, period: T) -> T
 where
@@ -75,15 +62,27 @@ fn chinese_remainder_inv(inv_residues: &[i64], modulii: &[i64]) -> Option<i64> {
     chinese_remainder(&residues, modulii)
 }
 
-fn parse_input<T: FromStr + Clone>(s: &str) -> IResult<&str, (T, Vec<Option<T>>)> {
-    all_consuming(separated_pair(
-        parse_integer,
-        line_ending,
-        separated_list1(
-            char(','),
-            alt((map(parse_integer, |i| Some(i)), value(None, char('x')))),
-        ),
-    ))(s)
+mod parsers {
+    use std::str::FromStr;
+
+    use nom::{
+        branch::alt,
+        character::complete::{char, line_ending},
+        combinator::{map, value},
+        error::Error,
+        multi::separated_list1,
+        sequence::separated_pair,
+    };
+
+    use crate::parsers::{finished_parser, integer};
+
+    pub fn input<T: FromStr + Clone>(s: &str) -> Result<(T, Vec<Option<T>>), Error<&str>> {
+        finished_parser(separated_pair(
+            integer,
+            line_ending,
+            separated_list1(char(','), alt((map(integer, Some), value(None, char('x'))))),
+        ))(s)
+    }
 }
 
 trait Solution {
@@ -92,14 +91,14 @@ trait Solution {
 }
 impl Solution for str {
     fn part_1(&self) -> u32 {
-        let (threshold, candidates) = parse_input(self).expect("Failed to parse the input").1;
+        let (threshold, candidates) = parsers::input(self).expect("Failed to parse the input");
         let id = least_multiple_above(candidates.iter().flatten(), threshold).expect("No ID found");
         let remaining = wait_time(threshold, *id);
         id * remaining
     }
     fn part_2(&self) -> i64 {
         let (offsets, ids) =
-            sparse_offsets(parse_input(self).expect("Failed to parse the input").1 .1);
+            sparse_offsets(parsers::input(self).expect("Failed to parse the input").1);
         chinese_remainder_inv(&offsets, &ids).expect("IDs not pairwise coprime")
     }
 }
@@ -111,26 +110,23 @@ mod tests {
     #[test]
     fn example_input() {
         assert_eq!(
-            parse_input(
+            parsers::input(
                 "\
 939
 7,13,x,x,59,x,31,19"
             ),
             Ok((
-                "",
-                (
-                    939,
-                    vec![
-                        Some(7),
-                        Some(13),
-                        None,
-                        None,
-                        Some(59),
-                        None,
-                        Some(31),
-                        Some(19)
-                    ]
-                )
+                939,
+                vec![
+                    Some(7),
+                    Some(13),
+                    None,
+                    None,
+                    Some(59),
+                    None,
+                    Some(31),
+                    Some(19)
+                ]
             ))
         );
     }

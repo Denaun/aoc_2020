@@ -1,13 +1,6 @@
 //! Day 17
 
 use itertools::Itertools;
-use nom::{
-    branch::alt,
-    character::complete::{char, line_ending},
-    combinator::{all_consuming, value},
-    multi::{many0, separated_list0},
-    IResult,
-};
 use std::{
     collections::{HashMap, HashSet},
     iter::repeat,
@@ -16,7 +9,7 @@ use std::{
 type Coordinate = Vec<i64>;
 
 #[derive(Debug, Clone, PartialEq)]
-struct PocketDimension {
+pub struct PocketDimension {
     dimensions: usize,
     active_cubes: HashSet<Coordinate>,
 }
@@ -59,16 +52,16 @@ impl PocketDimension {
     }
 }
 
-fn parse_input(dimensions: usize) -> impl FnMut(&str) -> IResult<&str, PocketDimension> {
-    move |s| {
-        let (s, cubes) = all_consuming(separated_list0(
-            line_ending,
-            many0(alt((value(false, char('.')), value(true, char('#'))))),
-        ))(s)?;
+mod parsers {
+    use nom::error::Error;
 
-        Ok((
-            s,
-            PocketDimension {
+    use crate::parsers::{bw_image, finished_parser};
+
+    use super::PocketDimension;
+
+    pub fn input(dimensions: usize) -> impl FnMut(&str) -> Result<PocketDimension, Error<&str>> {
+        move |s| {
+            finished_parser(bw_image)(s).map(|cubes| PocketDimension {
                 dimensions,
                 active_cubes: cubes
                     .into_iter()
@@ -86,8 +79,8 @@ fn parse_input(dimensions: usize) -> impl FnMut(&str) -> IResult<&str, PocketDim
                         })
                     })
                     .collect(),
-            },
-        ))
+            })
+        }
     }
 }
 
@@ -97,14 +90,14 @@ trait Solution {
 }
 impl Solution for str {
     fn part_1(&self) -> usize {
-        let mut dimension = parse_input(3)(self).expect("Failed to parse the input").1;
+        let mut dimension = parsers::input(3)(self).expect("Failed to parse the input");
         for _ in 0..6 {
             dimension.evolve();
         }
         dimension.active_cubes.len()
     }
     fn part_2(&self) -> usize {
-        let mut dimension = parse_input(4)(self).expect("Failed to parse the input").1;
+        let mut dimension = parsers::input(4)(self).expect("Failed to parse the input");
         for _ in 0..6 {
             dimension.evolve();
         }
@@ -119,41 +112,37 @@ mod tests {
     #[test]
     fn example_input() {
         assert_eq!(
-            parse_input(3)(
+            parsers::input(3)(
                 "\
 .#.
 ..#
 ###"
             ),
-            Ok((
-                "",
-                PocketDimension {
-                    dimensions: 3,
-                    active_cubes: [
-                        vec![0, 1, 0],
-                        vec![1, 2, 0],
-                        vec![2, 0, 0],
-                        vec![2, 1, 0],
-                        vec![2, 2, 0]
-                    ]
-                    .iter()
-                    .cloned()
-                    .collect()
-                }
-            ))
+            Ok(PocketDimension {
+                dimensions: 3,
+                active_cubes: [
+                    vec![0, 1, 0],
+                    vec![1, 2, 0],
+                    vec![2, 0, 0],
+                    vec![2, 1, 0],
+                    vec![2, 2, 0]
+                ]
+                .iter()
+                .cloned()
+                .collect()
+            })
         );
     }
 
     #[test]
     fn example_1() {
-        let mut dimension = parse_input(3)(
+        let mut dimension = parsers::input(3)(
             "\
 .#.
 ..#
 ###",
         )
-        .unwrap()
-        .1;
+        .unwrap();
         for _ in 0..6 {
             dimension.evolve();
         }
@@ -167,14 +156,13 @@ mod tests {
 
     #[test]
     fn example_2() {
-        let mut dimension = parse_input(4)(
+        let mut dimension = parsers::input(4)(
             "\
 .#.
 ..#
 ###",
         )
-        .unwrap()
-        .1;
+        .unwrap();
         for _ in 0..6 {
             dimension.evolve();
         }

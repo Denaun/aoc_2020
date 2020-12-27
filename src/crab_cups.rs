@@ -66,13 +66,15 @@ where
     }
 }
 
-fn parse_part_1<'a>(s: &'a str) -> impl Iterator<Item = u8> + 'a {
-    s.bytes().map(|b| b - b'0')
-}
-fn parse_part_2<'a>(s: &'a str) -> impl Iterator<Item = u32> + 'a {
-    s.bytes()
-        .map(|b| (b - b'0') as u32)
-        .chain((s.len() as u32 + 1)..=1_000_000)
+mod parsers {
+    pub fn part_1<'a>(s: &'a str) -> impl Iterator<Item = u8> + 'a {
+        s.bytes().map(|b| b - b'0')
+    }
+    pub fn part_2<'a>(s: &'a str) -> impl Iterator<Item = u32> + 'a {
+        s.bytes()
+            .map(|b| (b - b'0') as u32)
+            .chain((s.len() as u32 + 1)..=1_000_000)
+    }
 }
 
 trait Solution {
@@ -81,7 +83,7 @@ trait Solution {
 }
 impl Solution for &str {
     fn part_1(&self) -> String {
-        let mut game = Game::new(parse_part_1(self)).unwrap();
+        let mut game = Game::new(parsers::part_1(self)).unwrap();
         for _ in 0..100 {
             game.do_move();
         }
@@ -89,7 +91,7 @@ impl Solution for &str {
         ret
     }
     fn part_2(&self) -> u32 {
-        let mut game = Game::new(parse_part_2(self)).unwrap();
+        let mut game = Game::new(parsers::part_2(self)).unwrap();
         for _ in 0..10_000_000 {
             game.do_move();
         }
@@ -105,7 +107,7 @@ mod tests {
 
     #[test]
     fn example_1() {
-        let mut game = Game::new(parse_part_1(&"389125467")).unwrap();
+        let mut game = Game::new(parsers::part_1(&"389125467")).unwrap();
         assert_eq!(game.current, 3);
         game.do_move();
         assert_eq!(game.unroll(&3).join(""), "28915467");
@@ -130,7 +132,7 @@ mod tests {
 
     #[test]
     fn example_2() {
-        let mut game = Game::new(parse_part_2(&"389125467")).unwrap();
+        let mut game = Game::new(parsers::part_2(&"389125467")).unwrap();
         for _ in 0..10_000_000 {
             game.do_move()
         }

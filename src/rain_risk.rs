@@ -1,15 +1,5 @@
 //! Day 12
 
-use nom::{
-    branch::alt,
-    character::complete::digit1,
-    character::complete::{char, line_ending},
-    combinator::{all_consuming, map_res, value},
-    multi::separated_list0,
-    sequence::tuple,
-    IResult,
-};
-
 struct HeadedShip {
     heading: Cardinal,
     position: Position,
@@ -24,13 +14,13 @@ struct Position {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum Direction {
+pub enum Direction {
     Cardinal(Cardinal),
     Relative(Relative),
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum Cardinal {
+pub enum Cardinal {
     North,
     South,
     East,
@@ -38,7 +28,7 @@ enum Cardinal {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum Relative {
+pub enum Relative {
     Forward,
     Right,
     Left,
@@ -211,22 +201,37 @@ trait RotatableExt: Rotatable + Sized {
 }
 impl<T: Rotatable> RotatableExt for T {}
 
-fn parse_input(s: &str) -> IResult<&str, Vec<(Direction, i32)>> {
-    all_consuming(separated_list0(
-        line_ending,
-        tuple((
-            alt((
-                value(Direction::Cardinal(Cardinal::North), char('N')),
-                value(Direction::Cardinal(Cardinal::South), char('S')),
-                value(Direction::Cardinal(Cardinal::East), char('E')),
-                value(Direction::Cardinal(Cardinal::West), char('W')),
-                value(Direction::Relative(Relative::Forward), char('F')),
-                value(Direction::Relative(Relative::Right), char('R')),
-                value(Direction::Relative(Relative::Left), char('L')),
+mod parsers {
+    use nom::{
+        branch::alt,
+        character::complete::{char, line_ending},
+        combinator::value,
+        error::Error,
+        multi::separated_list1,
+        sequence::tuple,
+    };
+
+    use crate::parsers::{finished_parser, integer};
+
+    use super::{Cardinal, Direction, Relative};
+
+    pub fn input(s: &str) -> Result<Vec<(Direction, i32)>, Error<&str>> {
+        finished_parser(separated_list1(
+            line_ending,
+            tuple((
+                alt((
+                    value(Direction::Cardinal(Cardinal::North), char('N')),
+                    value(Direction::Cardinal(Cardinal::South), char('S')),
+                    value(Direction::Cardinal(Cardinal::East), char('E')),
+                    value(Direction::Cardinal(Cardinal::West), char('W')),
+                    value(Direction::Relative(Relative::Forward), char('F')),
+                    value(Direction::Relative(Relative::Right), char('R')),
+                    value(Direction::Relative(Relative::Left), char('L')),
+                )),
+                integer,
             )),
-            map_res(digit1, |s: &str| s.parse()),
-        )),
-    ))(s)
+        ))(s)
+    }
 }
 
 trait Solution {
@@ -235,9 +240,8 @@ trait Solution {
 }
 impl Solution for str {
     fn part_1(&self) -> u32 {
-        parse_input(self)
+        parsers::input(self)
             .expect("Failed to parse the input")
-            .1
             .into_iter()
             .fold(HeadedShip::new(), |ship, (direction, amount)| {
                 ship.do_move(direction, amount)
@@ -246,9 +250,8 @@ impl Solution for str {
             .get_manhattan_distance()
     }
     fn part_2(&self) -> u32 {
-        parse_input(self)
+        parsers::input(self)
             .expect("Failed to parse the input")
-            .1
             .into_iter()
             .fold(WaypontedShip::new(), |ship, (direction, amount)| {
                 ship.do_move(direction, amount)
@@ -265,7 +268,7 @@ mod tests {
     #[test]
     fn example_input() {
         assert_eq!(
-            parse_input(
+            parsers::input(
                 "\
 F10
 N3
@@ -273,16 +276,13 @@ F7
 R90
 F11"
             ),
-            Ok((
-                "",
-                vec![
-                    (Direction::Relative(Relative::Forward), 10),
-                    (Direction::Cardinal(Cardinal::North), 3),
-                    (Direction::Relative(Relative::Forward), 7),
-                    (Direction::Relative(Relative::Right), 90),
-                    (Direction::Relative(Relative::Forward), 11),
-                ]
-            ))
+            Ok(vec![
+                (Direction::Relative(Relative::Forward), 10),
+                (Direction::Cardinal(Cardinal::North), 3),
+                (Direction::Relative(Relative::Forward), 7),
+                (Direction::Relative(Relative::Right), 90),
+                (Direction::Relative(Relative::Forward), 11),
+            ])
         )
     }
 

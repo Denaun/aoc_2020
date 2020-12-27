@@ -1,28 +1,15 @@
 //! Day 1
 
-use crate::docking_data::parse_integer;
-use nom::{
-    branch::alt,
-    bytes::complete::tag,
-    character::complete::{char, line_ending},
-    combinator::{all_consuming, map, value},
-    multi::separated_list0,
-    sequence::{delimited, pair, preceded},
-    IResult,
-};
-use std::{
-    ops::{Add, Mul},
-    str::FromStr,
-};
+use std::ops::{Add, Mul};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-enum Op {
+pub enum Op {
     Plus,
     Times,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-enum Expression<T> {
+pub enum Expression<T> {
     Value(T),
     Op(Box<Expression<T>>, Op, Box<Expression<T>>),
 }
@@ -38,50 +25,70 @@ impl<T: Add<Output = T> + Mul<Output = T>> Expression<T> {
     }
 }
 
-fn parse_part_1<T: FromStr>(s: &str) -> IResult<&str, Vec<Expression<T>>> {
-    all_consuming(separated_list0(line_ending, parse_basic))(s)
-}
-fn parse_basic<T: FromStr>(s: &str) -> IResult<&str, Expression<T>> {
-    let (mut s, mut expr) = parse_token(parse_basic)(s)?;
-    while let Ok((s1, (op, lhs))) = pair(
-        alt((value(Op::Plus, tag(" + ")), value(Op::Times, tag(" * ")))),
-        parse_token(parse_basic),
-    )(s)
-    {
-        s = s1;
-        expr = Expression::Op(Box::new(expr), op, Box::new(lhs));
-    }
-    Ok((s, expr))
-}
-fn parse_token<T: FromStr>(
-    parse_expression: impl FnMut(&str) -> IResult<&str, Expression<T>> + Copy,
-) -> impl FnMut(&str) -> IResult<&str, Expression<T>> {
-    move |s| {
-        alt((
-            map(parse_integer, |v| Expression::Value(v)),
-            delimited(char('('), parse_expression, char(')')),
-        ))(s)
-    }
-}
+mod parsers {
+    use std::str::FromStr;
 
-fn parse_part_2<T: FromStr>(s: &str) -> IResult<&str, Vec<Expression<T>>> {
-    all_consuming(separated_list0(line_ending, parse_advanced_low_precedence))(s)
-}
-fn parse_advanced_low_precedence<T: FromStr>(s: &str) -> IResult<&str, Expression<T>> {
-    let (mut s, mut expr) = parse_advanced_high_precedence(s)?;
-    while let Ok((s1, lhs)) = preceded(tag(" * "), parse_advanced_high_precedence)(s) {
-        s = s1;
-        expr = Expression::Op(Box::new(expr), Op::Times, Box::new(lhs));
+    use nom::{
+        branch::alt,
+        bytes::complete::tag,
+        character::complete::{char, line_ending},
+        combinator::{map, value},
+        error::Error,
+        multi::separated_list0,
+        sequence::{delimited, pair, preceded},
+        IResult,
+    };
+
+    use crate::parsers::*;
+
+    use super::*;
+
+    pub fn part_1<T: FromStr>(s: &str) -> Result<Vec<Expression<T>>, Error<&str>> {
+        finished_parser(separated_list0(line_ending, basic_expression))(s)
     }
-    Ok((s, expr))
-}
-fn parse_advanced_high_precedence<T: FromStr>(s: &str) -> IResult<&str, Expression<T>> {
-    let (mut s, mut expr) = parse_token(parse_advanced_low_precedence)(s)?;
-    while let Ok((s1, lhs)) = preceded(tag(" + "), parse_token(parse_advanced_low_precedence))(s) {
-        s = s1;
-        expr = Expression::Op(Box::new(expr), Op::Plus, Box::new(lhs));
+    pub fn basic_expression<T: FromStr>(s: &str) -> IResult<&str, Expression<T>> {
+        let (mut s, mut expr) = token(basic_expression)(s)?;
+        while let Ok((s1, (op, lhs))) = pair(
+            alt((value(Op::Plus, tag(" + ")), value(Op::Times, tag(" * ")))),
+            token(basic_expression),
+        )(s)
+        {
+            s = s1;
+            expr = Expression::Op(Box::new(expr), op, Box::new(lhs));
+        }
+        Ok((s, expr))
     }
-    Ok((s, expr))
+
+    fn token<T: FromStr>(
+        parse_expression: impl FnMut(&str) -> IResult<&str, Expression<T>> + Copy,
+    ) -> impl FnMut(&str) -> IResult<&str, Expression<T>> {
+        move |s| {
+            alt((
+                map(integer, |v| Expression::Value(v)),
+                delimited(char('('), parse_expression, char(')')),
+            ))(s)
+        }
+    }
+
+    pub fn part_2<T: FromStr>(s: &str) -> Result<Vec<Expression<T>>, Error<&str>> {
+        finished_parser(separated_list0(line_ending, advanced_expression))(s)
+    }
+    pub fn advanced_expression<T: FromStr>(s: &str) -> IResult<&str, Expression<T>> {
+        let (mut s, mut expr) = high_precedence_operation(s)?;
+        while let Ok((s1, lhs)) = preceded(tag(" * "), high_precedence_operation)(s) {
+            s = s1;
+            expr = Expression::Op(Box::new(expr), Op::Times, Box::new(lhs));
+        }
+        Ok((s, expr))
+    }
+    fn high_precedence_operation<T: FromStr>(s: &str) -> IResult<&str, Expression<T>> {
+        let (mut s, mut expr) = token(advanced_expression)(s)?;
+        while let Ok((s1, lhs)) = preceded(tag(" + "), token(advanced_expression))(s) {
+            s = s1;
+            expr = Expression::Op(Box::new(expr), Op::Plus, Box::new(lhs));
+        }
+        Ok((s, expr))
+    }
 }
 
 trait Solution {
@@ -90,17 +97,15 @@ trait Solution {
 }
 impl Solution for str {
     fn part_1(&self) -> u64 {
-        parse_part_1::<u64>(self)
+        parsers::part_1::<u64>(self)
             .expect("Failed to parse the input")
-            .1
             .into_iter()
             .map(|expr| expr.evaluate())
             .sum()
     }
     fn part_2(&self) -> u64 {
-        parse_part_2::<u64>(self)
+        parsers::part_2::<u64>(self)
             .expect("Failed to parse the input")
-            .1
             .into_iter()
             .map(|expr| expr.evaluate())
             .sum()
@@ -114,7 +119,7 @@ mod tests {
     #[test]
     fn example_input() {
         assert_eq!(
-            parse_basic("1 + 2 * 3 + 4 * 5 + 6"),
+            parsers::basic_expression("1 + 2 * 3 + 4 * 5 + 6"),
             Ok((
                 "",
                 Expression::Op(
@@ -145,7 +150,7 @@ mod tests {
     #[test]
     fn example_1() {
         assert_eq!(
-            parse_basic::<i32>("1 + 2 * 3 + 4 * 5 + 6")
+            parsers::basic_expression::<i32>("1 + 2 * 3 + 4 * 5 + 6")
                 .unwrap()
                 .1
                 .evaluate(),
@@ -156,7 +161,7 @@ mod tests {
     #[test]
     fn example_2() {
         assert_eq!(
-            parse_basic::<i32>("1 + (2 * 3) + (4 * (5 + 6))")
+            parsers::basic_expression::<i32>("1 + (2 * 3) + (4 * (5 + 6))")
                 .unwrap()
                 .1
                 .evaluate(),
@@ -167,7 +172,10 @@ mod tests {
     #[test]
     fn example_3() {
         assert_eq!(
-            parse_basic::<i32>("2 * 3 + (4 * 5)").unwrap().1.evaluate(),
+            parsers::basic_expression::<i32>("2 * 3 + (4 * 5)")
+                .unwrap()
+                .1
+                .evaluate(),
             26
         );
     }
@@ -175,7 +183,7 @@ mod tests {
     #[test]
     fn example_4() {
         assert_eq!(
-            parse_basic::<i32>("5 + (8 * 3 + 9 + 3 * 4 * 3)")
+            parsers::basic_expression::<i32>("5 + (8 * 3 + 9 + 3 * 4 * 3)")
                 .unwrap()
                 .1
                 .evaluate(),
@@ -186,7 +194,7 @@ mod tests {
     #[test]
     fn example_5() {
         assert_eq!(
-            parse_basic::<i32>("5 * 9 * (7 * 3 * 3 + 9 * 3 + (8 + 6 * 4))")
+            parsers::basic_expression::<i32>("5 * 9 * (7 * 3 * 3 + 9 * 3 + (8 + 6 * 4))")
                 .unwrap()
                 .1
                 .evaluate(),
@@ -197,7 +205,7 @@ mod tests {
     #[test]
     fn example_6() {
         assert_eq!(
-            parse_basic::<i32>("((2 + 4 * 9) * (6 + 9 * 8 + 6) + 6) + 2 + 4 * 2")
+            parsers::basic_expression::<i32>("((2 + 4 * 9) * (6 + 9 * 8 + 6) + 6) + 2 + 4 * 2")
                 .unwrap()
                 .1
                 .evaluate(),
@@ -213,7 +221,7 @@ mod tests {
     #[test]
     fn example_7() {
         assert_eq!(
-            parse_advanced_low_precedence::<i32>("1 + 2 * 3 + 4 * 5 + 6")
+            parsers::advanced_expression::<i32>("1 + 2 * 3 + 4 * 5 + 6")
                 .unwrap()
                 .1
                 .evaluate(),
@@ -224,7 +232,7 @@ mod tests {
     #[test]
     fn example_8() {
         assert_eq!(
-            parse_advanced_low_precedence::<i32>("1 + (2 * 3) + (4 * (5 + 6))")
+            parsers::advanced_expression::<i32>("1 + (2 * 3) + (4 * (5 + 6))")
                 .unwrap()
                 .1
                 .evaluate(),
@@ -235,7 +243,7 @@ mod tests {
     #[test]
     fn example_9() {
         assert_eq!(
-            parse_advanced_low_precedence::<i32>("2 * 3 + (4 * 5)")
+            parsers::advanced_expression::<i32>("2 * 3 + (4 * 5)")
                 .unwrap()
                 .1
                 .evaluate(),
@@ -246,7 +254,7 @@ mod tests {
     #[test]
     fn example_10() {
         assert_eq!(
-            parse_advanced_low_precedence::<i32>("5 + (8 * 3 + 9 + 3 * 4 * 3)")
+            parsers::advanced_expression::<i32>("5 + (8 * 3 + 9 + 3 * 4 * 3)")
                 .unwrap()
                 .1
                 .evaluate(),
@@ -257,7 +265,7 @@ mod tests {
     #[test]
     fn example_11() {
         assert_eq!(
-            parse_advanced_low_precedence::<i32>("5 * 9 * (7 * 3 * 3 + 9 * 3 + (8 + 6 * 4))")
+            parsers::advanced_expression::<i32>("5 * 9 * (7 * 3 * 3 + 9 * 3 + (8 + 6 * 4))")
                 .unwrap()
                 .1
                 .evaluate(),
@@ -268,7 +276,7 @@ mod tests {
     #[test]
     fn example_12() {
         assert_eq!(
-            parse_advanced_low_precedence::<i32>("((2 + 4 * 9) * (6 + 9 * 8 + 6) + 6) + 2 + 4 * 2")
+            parsers::advanced_expression::<i32>("((2 + 4 * 9) * (6 + 9 * 8 + 6) + 6) + 2 + 4 * 2")
                 .unwrap()
                 .1
                 .evaluate(),

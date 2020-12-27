@@ -2,7 +2,7 @@
 
 use crate::report_repair::find_sum;
 use num_traits::{CheckedSub, NumAssignOps, Unsigned, Zero};
-use std::{iter::FromIterator, str::FromStr};
+use std::iter::FromIterator;
 
 fn is_valid<T: Zero + CheckedSub + Copy>(value: T, values: &impl AsRef<[T]>) -> bool {
     find_sum(values.as_ref(), value, 2).is_some()
@@ -67,8 +67,8 @@ impl<T> AsRef<[T]> for CircularBuffer<T> {
     }
 }
 
-fn parse_input<T: FromStr>(text: &str) -> Result<Vec<T>, <T as FromStr>::Err> {
-    text.lines().map(str::parse).collect()
+mod parsers {
+    pub use crate::parsers::number_list as input;
 }
 
 trait Solution {
@@ -77,12 +77,12 @@ trait Solution {
 }
 impl Solution for str {
     fn part_1(&self) -> u64 {
-        let input = parse_input(self).expect("Failed to parse the input");
+        let input = parsers::input(self).expect("Failed to parse the input");
         find_first_non_valid(input[..25].iter().copied().collect(), &input[25..])
             .expect("Violation not found")
     }
     fn part_2(&self) -> u64 {
-        let input: Vec<u64> = parse_input(self).expect("Failed to parse the input");
+        let input: Vec<u64> = parsers::input(self).expect("Failed to parse the input");
         let sum = find_first_non_valid(input[..25].iter().copied().collect(), &input[25..])
             .expect("Violation not found");
         let weakness = find_contiguous_sum(&input, sum).expect("Weakness not found");
@@ -101,7 +101,7 @@ mod tests {
     #[test]
     fn example_input() {
         assert_eq!(
-            parse_input(
+            parsers::input(
                 "\
 35
 20

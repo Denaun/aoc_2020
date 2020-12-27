@@ -1,13 +1,8 @@
 //! Day 6
 
-use itertools::Itertools;
-use nom::{
-    character::complete::{alpha1, line_ending},
-    multi::{separated_list0, separated_list1},
-    sequence::pair,
-    IResult,
-};
 use std::collections::HashSet;
+
+use itertools::Itertools;
 
 fn unique_answers<'a>(group: &'a [&str]) -> impl Iterator<Item = char> + 'a {
     group.iter().flat_map(|answers| answers.chars()).unique()
@@ -23,11 +18,22 @@ fn common_answers(group: &[&str]) -> Option<HashSet<char>> {
     }))
 }
 
-fn parse_group(s: &str) -> IResult<&str, Vec<&str>> {
-    separated_list1(line_ending, alpha1)(s)
-}
-fn parse_input(s: &str) -> IResult<&str, Vec<Vec<&str>>> {
-    separated_list0(pair(line_ending, line_ending), parse_group)(s)
+mod parsers {
+    use nom::{
+        character::complete::{alpha1, line_ending},
+        error::Error,
+        multi::separated_list1,
+        IResult,
+    };
+
+    use crate::parsers::{double_line_ending, finished_parser};
+
+    pub fn input(s: &str) -> Result<Vec<Vec<&str>>, Error<&str>> {
+        finished_parser(separated_list1(double_line_ending, group))(s)
+    }
+    pub fn group(s: &str) -> IResult<&str, Vec<&str>> {
+        separated_list1(line_ending, alpha1)(s)
+    }
 }
 
 trait Solution {
@@ -36,17 +42,15 @@ trait Solution {
 }
 impl Solution for str {
     fn part_1(&self) -> usize {
-        parse_input(self)
+        parsers::input(self)
             .expect("Failed to parse the input")
-            .1
             .iter()
             .map(|group| unique_answers(group).count())
             .sum()
     }
     fn part_2(&self) -> usize {
-        parse_input(self)
+        parsers::input(self)
             .expect("Failed to parse the input")
-            .1
             .iter()
             .map(|group| {
                 if let Some(answers) = common_answers(group) {
@@ -66,7 +70,7 @@ mod tests {
     #[test]
     fn example_group() {
         assert_eq!(
-            parse_group(
+            parsers::group(
                 "\
 abcx
 abcy
@@ -79,7 +83,7 @@ abcz"
     #[test]
     fn example_input() {
         assert_eq!(
-            parse_input(
+            parsers::input(
                 "\
 abc
 
@@ -97,16 +101,13 @@ a
 
 b"
             ),
-            Ok((
-                "",
-                vec![
-                    vec!["abc"],
-                    vec!["a", "b", "c"],
-                    vec!["ab", "ac"],
-                    vec!["a"; 4],
-                    vec!["b"]
-                ]
-            ))
+            Ok(vec![
+                vec!["abc"],
+                vec!["a", "b", "c"],
+                vec!["ab", "ac"],
+                vec!["a"; 4],
+                vec!["b"]
+            ])
         );
     }
 
