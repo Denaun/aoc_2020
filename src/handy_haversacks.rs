@@ -5,7 +5,7 @@ use std::{
     hash::Hash,
 };
 
-fn build_containee_map<K1, K2>(data: &[(K1, impl AsRef<[(K2, usize)]>)]) -> HashMap<K2, Vec<K1>>
+fn build_containee_map<K1, K2, V>(data: &[(K1, impl AsRef<[(K2, V)]>)]) -> HashMap<K2, Vec<K1>>
 where
     K1: Eq + Hash + Clone,
     K2: Eq + Hash + Clone,
